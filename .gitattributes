@@ -1,0 +1,5 @@
+# Enforce LF in all text files.
+* text=auto eol=lf
+
+# Keep on treating PDFs as binary files.
+*.pdf binary

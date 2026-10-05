@@ -1,0 +1,42 @@
+# Shared formatting for the C implementation of the IFJ26 compiler.
+BasedOnStyle: LLVM
+
+# Four spaces everywhere; never use tabs.
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+LineEnding: LF
+InsertNewlineAtEOF: true
+
+# Keep opening braces on the same line and expand short bodies.
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+IndentCaseLabels: false
+
+# Use conventional C spacing: Token *token, if (...), scan_token(...).
+DerivePointerAlignment: false
+PointerAlignment: Right
+SpaceBeforeParens: ControlStatements
+
+# When a parameter or argument list wraps, put each item on its own line.
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# Sort alphabetically inside each block; blank lines separate independent blocks.
+SortIncludes: true
+IncludeBlocks: Preserve
+
+# Use one category, with the matching module header automatically ranked first.
+IncludeCategories:
+  - Regex: ".*"
+    Priority: 1
+MaxEmptyLinesToKeep: 1
