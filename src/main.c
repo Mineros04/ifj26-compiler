@@ -1,3 +1,9 @@
+/**
+ * @file
+ * @authors
+ * @brief
+ */
+
 #include <stdio.h>
 
 int main(void) {
