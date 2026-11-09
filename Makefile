@@ -1,5 +1,5 @@
 CC = clang
-CFLAGS = -std=c17 -Wall -Wextra -Wpedantic
+CFLAGS = -std=c23 -Wall -Wextra -Wpedantic
 
 BUILD_SOURCES = $(wildcard src/*.c)
 BUILD_TARGET = dist/compiler
