@@ -30,3 +30,6 @@ build_test: $(TEST_SOURCES) $(TEST_MODULES) $(TEST_HEADERS) Makefile
 
 test: build_test
 	./$(TEST_TARGET) $(TEST_ARGS)
+
+memcheck:
+	valgrind --leak-check=full $(BUILD_TARGET)
