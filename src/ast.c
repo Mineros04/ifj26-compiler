@@ -229,3 +229,95 @@ AstNode *ast_new_lit_unit(int line) {
     node->inferred_type = TYPE_UNIT;
     return node;
 }
+
+// Memory Management (Recursive cleanup)
+
+void ast_free(AstNode *node) {
+    if (node == NULL) {
+        return;
+    }
+
+    switch (node->type) {
+        case AST_PROGRAM:
+            ast_list_free(&node->program.functions);
+            break;
+
+        case AST_FUNC_DEF:
+            free(node->func_def.name);
+            ast_list_free(&node->func_def.params);
+            ast_free(node->func_def.body);
+            break;
+
+        case AST_PARAM:
+            free(node->param.name);
+            break;
+
+        case AST_BLOCK:
+            ast_list_free(&node->block.statements);
+            break;
+
+        case AST_VAR_DECL:
+            free(node->var_decl.name);
+            ast_free(node->var_decl.init_expr);
+            break;
+
+        case AST_ASSIGN:
+            free(node->assign.target_name);
+            ast_free(node->assign.value_expr);
+            break;
+
+        case AST_IF:
+            ast_free(node->if_stmt.condition);
+            ast_free(node->if_stmt.then_branch);
+            ast_free(node->if_stmt.else_branch);
+            break;
+
+        case AST_WHILE:
+            ast_free(node->while_stmt.condition);
+            ast_free(node->while_stmt.body);
+            break;
+
+        case AST_FOR:
+            free(node->for_stmt.iter_name);
+            ast_free(node->for_stmt.from_expr);
+            ast_free(node->for_stmt.to_expr);
+            ast_free(node->for_stmt.step_expr);
+            ast_list_free(&node->for_stmt.guards);
+            ast_free(node->for_stmt.body);
+            break;
+
+        case AST_RETURN:
+            ast_free(node->return_stmt.expr);
+            break;
+
+        case AST_FUNC_CALL:
+            free(node->func_call.func_name);
+            ast_list_free(&node->func_call.args);
+            break;
+
+        case AST_BIN_OP:
+            ast_free(node->bin_op.left);
+            ast_free(node->bin_op.right);
+            break;
+
+        case AST_UN_OP:
+            ast_free(node->un_op.operand);
+            break;
+
+        case AST_IDENT:
+            free(node->ident.name);
+            break;
+
+        case AST_LIT_STRING:
+            free(node->lit_string);
+            break;
+
+        case AST_LIT_INT:
+        case AST_LIT_DOUBLE:
+        case AST_LIT_BOOL:
+        case AST_LIT_UNIT:
+            break;
+    }
+
+    free(node);
+}
