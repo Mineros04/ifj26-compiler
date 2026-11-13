@@ -1,9 +1,9 @@
 /**
  * @file ast.h
+ * @authors Ondřej Pippal
  * @brief Abstract Syntax Tree (AST) node definitions and interfaces.
  *
  * Project: IFJ26 Compiler Implementation
- * Authors: tbd
  */
 
 #ifndef AST_H
