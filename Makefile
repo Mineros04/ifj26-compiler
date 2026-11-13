@@ -1,22 +1,26 @@
 CC = clang
 CFLAGS = -std=c23 -Wall -Wextra -Wpedantic
 
-BUILD_SOURCES = $(wildcard src/*.c)
+# Recursive file lookup in a specified directory with an extension.
+find_files = $(shell find $(1) -type f -name '*.$(2)' 2>/dev/null)
+
+BUILD_SOURCES = $(call find_files,src,c)
+BUILD_HEADERS = $(call find_files,src,h)
 BUILD_TARGET = dist/compiler
 
-TEST_SOURCES = $(wildcard tests/*.c)
+TEST_SOURCES = $(call find_files,tests,c)
 TEST_MODULES = $(filter-out src/main.c,$(BUILD_SOURCES))
-TEST_HEADERS = $(wildcard tests/*.h src/*.h)
+TEST_HEADERS = $(call find_files,tests,h) $(BUILD_HEADERS)
 TEST_TARGET = dist/test_runner
 
 .SILENT: all build run clean build_test test
-.PHONY: all run clean build_test test
+.PHONY: all build run clean build_test test memcheck
 
 all: build run
 
-build: $(BUILD_SOURCES) $(wildcard src/*.h)
+build: $(BUILD_SOURCES) $(BUILD_HEADERS) Makefile
 	mkdir -p dist
-	$(CC) $(CFLAGS) $(BUILD_SOURCES) -o $(BUILD_TARGET)
+	$(CC) $(CFLAGS) -Isrc $(BUILD_SOURCES) -o $(BUILD_TARGET)
 
 run:
 	./$(BUILD_TARGET)
