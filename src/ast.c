@@ -4,7 +4,6 @@
  * @brief Implementation of AST constructors and memory management.
  *
  * Project: IFJ26 Compiler Implementation
- * Author: Ondřej Pippal
  */
 
 #include "ast.h"
