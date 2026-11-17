@@ -63,7 +63,7 @@ static slot_t *item_probe(slot_t *item_array, size_t capacity, const char *key) 
     }
 
     assert(!"hashtable: table has no empty slot in item_probe function");
-    return NULL;
+    return nullptr;
 }
 
 Hashtable *hashtable_create(size_t init_capacity) {
