@@ -109,3 +109,7 @@ void *hashtable_find(const Hashtable *table, const char *key) {
         return slot->value;
     }
 }
+
+size_t hashtable_count(const Hashtable *table) {
+    return table ? table->count : 0;
+}
