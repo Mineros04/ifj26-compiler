@@ -38,6 +38,8 @@ static unsigned long djb_hash(const char *str) {
     while ((c = *string++) != 0) {
         hash = (hash * 33) + c;
     }
+
+    return hash;
 }
 
 /**
@@ -51,7 +53,7 @@ static unsigned long djb_hash(const char *str) {
  */
 static slot_t *item_probe(slot_t *item_array, size_t capacity, const char *key) {
     // reduce hash for key, get start index of array
-    size_t idx = djb_hash((const unsigned char *)key) % capacity;
+    size_t idx = djb_hash(key) % capacity;
 
     for (size_t i = 0; i < capacity; i++) {
         if (!item_array[idx].key || strcmp(key, item_array[idx].key) == 0) {
