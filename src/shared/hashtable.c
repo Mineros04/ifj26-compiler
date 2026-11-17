@@ -91,3 +91,21 @@ Hashtable *hashtable_create(size_t init_capacity) {
 
     return new_table;
 }
+
+void *hashtable_find(const Hashtable *table, const char *key) {
+    if (!table || !key) {
+        // check preconditions
+        return NULL;
+    }
+
+    // probe for slot
+    slot_t *slot = item_probe(table->items, table->capacity, key);
+
+    if (!slot || !slot->key) {
+        // precondition fail, key not found
+        return NULL;
+    } else {
+        // return value
+        return slot->value;
+    }
+}
