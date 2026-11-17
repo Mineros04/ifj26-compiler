@@ -187,6 +187,24 @@ void *hashtable_find(const Hashtable *table, const char *key) {
     return slot->value;
 }
 
+void hashtable_destroy(Hashtable *table, HashtableCallback callback) {
+    if (!table) {
+        return;
+    }
+
+    for (size_t i = 0; i < table->capacity; i++) {
+        if (table->items[i].key) {
+            if (callback) {
+                callback(table->items[i].value);
+            }
+            free(table->items[i].key);
+        }
+    }
+
+    free(table->items);
+    free(table);
+}
+
 size_t hashtable_count(const Hashtable *table) {
     return table ? table->count : 0;
 }
