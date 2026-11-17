@@ -23,7 +23,7 @@ struct hashtable {
 
 /**
  * @brief Standard DJB hashing function.
- * @param string String to generate hash key for.
+ * @param str String to generate hash key for.
  * @returns Unreduced hash for string.
  * @note Sources: IAL presentation "Vyhledávací tabulky III",
  * slide 13, D. J. Bernstein.
