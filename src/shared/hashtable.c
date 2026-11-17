@@ -69,13 +69,13 @@ static slot_t *item_probe(slot_t *item_array, size_t capacity, const char *key) 
 Hashtable *hashtable_create(size_t init_capacity) {
     if (init_capacity < 2) {
         // capacity less than 2, not acceptable for hashtable
-        return NULL;
+        return nullptr;
     }
 
     Hashtable *new_table = malloc(sizeof(Hashtable)); // allocate new hashtable
     if (!new_table) {
         // table allocation failure
-        return NULL;
+        return nullptr;
     }
 
     new_table->items =
@@ -83,7 +83,7 @@ Hashtable *hashtable_create(size_t init_capacity) {
     if (!new_table->items) {
         // slot allocation failure, free created table
         free(new_table);
-        return NULL;
+        return nullptr;
     }
 
     new_table->capacity = init_capacity; // set initial capacity
@@ -95,7 +95,7 @@ Hashtable *hashtable_create(size_t init_capacity) {
 void *hashtable_find(const Hashtable *table, const char *key) {
     if (!table || !key) {
         // check preconditions
-        return NULL;
+        return nullptr;
     }
 
     // probe for slot
@@ -103,7 +103,7 @@ void *hashtable_find(const Hashtable *table, const char *key) {
 
     if (!slot || !slot->key) {
         // precondition fail, key not found
-        return NULL;
+        return nullptr;
     } else {
         // return value
         return slot->value;
