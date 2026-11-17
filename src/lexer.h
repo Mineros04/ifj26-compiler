@@ -143,3 +143,37 @@ typedef struct {
     };
 } token_t;
 
+/**
+ * @brief The state of the lexer.
+ * @warning All fields are internal and must not be acessed outside of the lexer implementation.
+ */
+typedef struct {
+    /// The source code that is being tokenized (borrowed, must outlive the lexer).
+    const string_t *src;
+    /// The current position in `src`.
+    size_t src_pos;
+    /// The current line (counted from 1).
+    size_t src_line;
+    /// The current column (counted from 1).
+    size_t src_column;
+
+    /// The stack of indentation levels of the currently open blocks.
+    size_t *indent_stack;
+    /// The number of levels on the indentation stack.
+    size_t indent_len;
+    /// The capacity of the indentation stack.
+    size_t indent_cap;
+    /// The number of `TOK_DEDENT` tokens yet to be emitted.
+    size_t pending_dedents;
+
+    /// The current nesting depth of parentheses.
+    size_t parens_depth;
+    /// Whether the lexer is at the start of a logical line (indentation is to be measured).
+    bool at_line_start;
+
+    /// The token read ahead by `lexer_peek`.
+    token_t lookahead;
+    /// Whether `lookahead` holds a valid token.
+    bool has_lookahead;
+} lexer_t;
+
