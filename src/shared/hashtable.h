@@ -39,7 +39,8 @@ Hashtable *hashtable_create(size_t init_capacity);
  * @param value Item value (non-NULL).
  * @returns On success, returns HASHTABLE_SUCCESS.
  * If the item already exists, returns HASHTABLE_ITEM_EXISTS - existing item is untouched.
- * On memory allocation failure, returns HASHTABLE_OUT_OF_MEM - table is unchanged.
+ * On memory allocation failure, returns HASHTABLE_OUT_OF_MEM - contents are unchanged, table may
+ * have been expanded.
  * @attention Insertion may result in an out-of-memory error.
  * @note Unless the return is HASHTABLE_SUCCESS, the caller
  * still owns the value, and must free it.
