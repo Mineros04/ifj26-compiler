@@ -6,9 +6,8 @@
 
 #include "hashtable.h"
 #include <assert.h>
-#include <stdbool.h>
-#include <stdlib.h> // malloc, calloc
-#include <string.h>
+#include <stdlib.h> // malloc, calloc, free
+#include <string.h> // strcmp
 
 typedef struct slot {
     char *key; // if key is NULL -> slot is empty
@@ -30,7 +29,7 @@ struct hashtable {
  */
 static unsigned long djb_hash(const char *str) {
     // convert to unsigned string
-    const unsigned char *string = (unsigned char *)str;
+    const unsigned char *string = (const unsigned char *)str;
 
     // generate hash
     unsigned long hash = 5381;
@@ -79,7 +78,7 @@ Hashtable *hashtable_create(size_t init_capacity) {
     }
 
     new_table->items =
-        calloc(sizeof(slot_t), init_capacity); // allocate new zeroed slot array (NULL = empty)
+        calloc(init_capacity, sizeof(slot_t)); // allocate new zeroed slot array (NULL = empty)
     if (!new_table->items) {
         // slot allocation failure, free created table
         free(new_table);
@@ -104,10 +103,8 @@ void *hashtable_find(const Hashtable *table, const char *key) {
     if (!slot || !slot->key) {
         // precondition fail, key not found
         return nullptr;
-    } else {
-        // return value
-        return slot->value;
     }
+    return slot->value;
 }
 
 size_t hashtable_count(const Hashtable *table) {
