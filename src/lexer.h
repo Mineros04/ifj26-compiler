@@ -3,7 +3,7 @@
  * @authors Adam Jaroš
  * @brief Public API for the lexer.
  *
- * The lexer is driven on-demand by the parser (one token at a time). Lexical errors are handled by
+ * The lexer is driven on demand by the parser (one token at a time). Lexical errors are handled by
  * the internal error handler, terminating the program with exit code 1.
  */
 
@@ -145,7 +145,7 @@ typedef struct {
 
 /**
  * @brief The state of the lexer.
- * @warning All fields are internal and must not be acessed outside of the lexer implementation.
+ * @warning All fields are internal and must not be accessed outside of the lexer implementation.
  */
 typedef struct {
     /// The source code that is being tokenized (borrowed, must outlive the lexer).
@@ -206,7 +206,7 @@ void lexer_free(lexer_t *lex);
 [[nodiscard]] token_t lexer_next(lexer_t *lex);
 
 /**
- * @brief Returns the next token without processes it. Terminates the program on a lexical error or
+ * @brief Returns the next token without processing it. Terminates the program on a lexical error or
  * an allocation failure.
  * @param lex The pointer to the lexer to read from.
  * @returns The pointer to the next token (never `nullptr`). It is owned by the lexer and stays
