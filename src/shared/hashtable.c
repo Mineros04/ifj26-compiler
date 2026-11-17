@@ -6,6 +6,7 @@
 
 #include "hashtable.h"
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h> // malloc, calloc, free
 #include <string.h> // strcmp
 
@@ -21,21 +22,21 @@ struct hashtable {
 };
 
 /**
- * @brief Standard DJB hashing function.
+ * @brief Fowler–Noll–Vo hash function.
  * @param str String to generate hash key for.
  * @returns Unreduced hash for string.
- * @note Sources: IAL presentation "Vyhledávací tabulky III",
- * slide 13, D. J. Bernstein.
+ * @note Sources: Wikipedia; Glenn Fowler, Landon Curt Noll & Kiem-Phong Vo
+ * https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#FNV-1a_hash
  */
-static unsigned long djb_hash(const char *str) {
+static uint64_t fnv_hash(const char *str) {
     // convert to unsigned string
     const unsigned char *string = (const unsigned char *)str;
 
-    // generate hash
-    unsigned long hash = 5381;
+    // generate hash, 64bit values are used
+    uint64_t hash = 14695981039346656037ULL;
     unsigned c;
     while ((c = *string++) != 0) {
-        hash = (hash * 33) + c;
+        hash = (hash ^ c) * 1099511628211ULL;
     }
 
     return hash;
@@ -52,7 +53,7 @@ static unsigned long djb_hash(const char *str) {
  */
 static slot_t *item_probe(slot_t *item_array, size_t capacity, const char *key) {
     // reduce hash for key, get start index of array
-    size_t idx = djb_hash(key) % capacity;
+    size_t idx = fnv_hash(key) % capacity;
 
     for (size_t i = 0; i < capacity; i++) {
         if (!item_array[idx].key || strcmp(key, item_array[idx].key) == 0) {
