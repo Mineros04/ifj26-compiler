@@ -177,3 +177,56 @@ typedef struct {
     bool has_lookahead;
 } lexer_t;
 
+/**
+ * @brief Initializes the lexer to tokenize the given source code. Terminates the program on
+ * allocation failure.
+ * @param lex The pointer to the lexer to be initialized.
+ * @param src The source code to be tokenized. It is borrowed and must outlive the lexer.
+ *
+ * @throws Error 99 - Allocation failed
+ */
+void lexer_init(lexer_t *lex, const string_t *src);
+
+/**
+ * @brief Releases all resources contained in the lexer (including a pending lookahead token).
+ * @param lex The pointer to the lexer to be freed.
+ */
+void lexer_free(lexer_t *lex);
+
+/**
+ * @brief Reads the next token from the source code and processes it. Terminates the program on a
+ * lexical error or an allocation failure.
+ * @param lex The pointer to the lexer to read from.
+ * @returns The next token. Its ownership is transferred to the caller. Once `TOK_EOF` has been
+ * returned, every further call returns `TOK_EOF` again.
+ *
+ * @throws Error 1 - Lexical error
+ * @throws Error 99 - Allocation failed
+ */
+[[nodiscard]] token_t lexer_next(lexer_t *lex);
+
+/**
+ * @brief Returns the next token without processes it. Terminates the program on a lexical error or
+ * an allocation failure.
+ * @param lex The pointer to the lexer to read from.
+ * @returns The pointer to the next token (never `nullptr`). It is owned by the lexer and stays
+ * valid only until the next call of `lexer_next` or `lexer_free`.
+ *
+ * @throws Error 1 - Lexical error
+ * @throws Error 99 - Allocation failed
+ */
+const token_t *lexer_peek(lexer_t *lex);
+
+/**
+ * @brief Releases the resources owned by the token; works with any token type.
+ * @param tok The pointer to the token to be freed.
+ */
+void token_free(token_t *tok);
+
+/**
+ * @brief Returns a human-readable name of the token type, meant for error messages (e.g.
+ * `"identifier"` or `"'<='"`).
+ * @param type The token type to have its name returned.
+ * @returns A statically allocated C string containing the token type name (never `nullptr`).
+ */
+const char *token_type_name(token_type_t type);
