@@ -9,6 +9,11 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include "shared/str.h"
+
 /**
  * @brief The kind of a token.
  */
@@ -110,4 +115,31 @@ typedef enum {
     TOK_AT_MAIN,
     // To Be Decided (extensions): TOK_UNDERSCORE, TOK_AND, TOK_OR, TOK_NOT...
 } token_type_t;
+
+/**
+ * @brief A single token produced by the lexer.
+ *
+ * @warning Tokens of type `TOK_IDENT` and `TOK_LIT_STRING` own their `str_val` and must be released
+ * with `token_free` (or have the string's ownership taken over, e.g. via `str_to_owned`).
+ */
+typedef struct {
+    /// The kind of the token, which also determines the active member of the union.
+    token_type_t type;
+    /// The line (counted from 1) on which the token starts.
+    size_t line;
+    /// The column (counted from 1) at which the token starts.
+    size_t column;
+    /// Whether a physical line break precedes the token (used e.g. for trailing commas, as
+    /// `TOK_NEWLINE` is not emitted inside parentheses).
+    bool after_newline;
+
+    union {
+        /// The value of a `TOK_LIT_INT` token.
+        int64_t int_val;
+        /// The value of a `TOK_LIT_DOUBLE` token.
+        double double_val;
+        /// The name of a `TOK_IDENT` token or the value of a `TOK_LIT_STRING` token.
+        string_t str_val;
+    };
+} token_t;
 
