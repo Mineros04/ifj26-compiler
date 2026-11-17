@@ -5,7 +5,10 @@
  */
 
 #include "hashtable.h"
+#include <assert.h>
+#include <stdbool.h>
 #include <stdlib.h> // malloc, calloc
+#include <string.h>
 
 typedef struct slot {
     char *key; // if key is NULL -> slot is empty
@@ -35,6 +38,30 @@ static unsigned long djb_hash(const char *str) {
     while ((c = *string++) != 0) {
         hash = (hash * 33) + c;
     }
+}
+
+/**
+ * @brief Finds the slot or the first empty slot in probe sequence.
+ * @param item_array Array of slots.
+ * @param capacity Array capacity.
+ * @param key Key to look up (non-NULL, not empty).
+ * @returns Slot holding the key, or first empty slot in probe sequence.
+ * @attention Array must contain at least one empty slot & capacity must be
+ * at least 1 (modulo division by zero).
+ */
+static slot_t *item_probe(slot_t *item_array, size_t capacity, const char *key) {
+    // reduce hash for key, get start index of array
+    size_t idx = djb_hash((const unsigned char *)key) % capacity;
+
+    for (size_t i = 0; i < capacity; i++) {
+        if (!item_array[idx].key || strcmp(key, item_array[idx].key) == 0) {
+            return &item_array[idx];
+        }
+        idx = (idx + 1) % capacity; // advance
+    }
+
+    assert(!"hashtable: table has no empty slot in item_probe function");
+    return NULL;
 }
 
 Hashtable *hashtable_create(size_t init_capacity) {
