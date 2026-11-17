@@ -27,6 +27,7 @@ struct hashtable {
  * @returns Unreduced hash for string.
  * @note Sources: Wikipedia; Glenn Fowler, Landon Curt Noll & Kiem-Phong Vo
  * https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#FNV-1a_hash
+ * (accessed 17.11.2026)
  */
 static uint64_t fnv_hash(const char *str) {
     // convert to unsigned string
@@ -64,6 +65,43 @@ static slot_t *item_probe(slot_t *item_array, size_t capacity, const char *key) 
 
     assert(!"hashtable: table has no empty slot in item_probe function");
     return nullptr;
+}
+
+/**
+ * @brief Helper function for table expansion.
+ * @param table Hashtable to expand.
+ * @returns true if expansion was successful, false otherwise
+ * @note Expansion is done by doubling the capacity. Table is left
+ * unchanged on failure. Any slot pointer obtained before the call
+ * is invalidated.
+ */
+static bool table_expand(Hashtable *table) {
+    // size_t overflow protection, should never fail (memory would run out before this fails)
+    if (table->capacity >= (SIZE_MAX / 2)) {
+        return false;
+    }
+
+    size_t new_capacity = table->capacity * 2;
+
+    // allocate new slot array
+    slot_t *new_array = calloc(new_capacity, sizeof(slot_t));
+    if (!new_array) {
+        return false;
+    }
+
+    for (size_t i = 0; i < table->capacity; i++) {
+        if (table->items[i].key) {
+            slot_t *dest = item_probe(new_array, new_capacity, table->items[i].key);
+            assert(dest);
+            assert(dest->key == nullptr);
+            *dest = table->items[i];
+        }
+    }
+    free(table->items);
+
+    table->items = new_array;
+    table->capacity = new_capacity;
+    return true;
 }
 
 Hashtable *hashtable_create(size_t init_capacity) {
