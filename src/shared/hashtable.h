@@ -10,17 +10,17 @@
 
 // Attention: An empty string key is not a valid key.
 
-typedef struct hashtable Hashtable;
+typedef struct hashtable hashtable_t;
 
 // item insertion states
 typedef enum {
     HASHTABLE_SUCCESS,     // item insertion successful
     HASHTABLE_ITEM_EXISTS, // item already exists
     HASHTABLE_OUT_OF_MEM   // ran out of memory during insertion
-} HashtableStatus;
+} hashtable_status_t;
 
 // generic callback for hashtable destruction, receives a stored value
-typedef void (*HashtableCallback)(void *value);
+typedef void (*hashtable_callback)(void *value);
 
 /**
  * @brief Creates a new empty hashtable.
@@ -30,7 +30,7 @@ typedef void (*HashtableCallback)(void *value);
  * accepted minimum is init_capacity of 2. The table is freed by the
  * caller with hashtable_destroy.
  */
-Hashtable *hashtable_create(size_t init_capacity);
+hashtable_t *hashtable_create(size_t init_capacity);
 
 /**
  * @brief Inserts a new item into the hashtable.
@@ -45,7 +45,7 @@ Hashtable *hashtable_create(size_t init_capacity);
  * @note Unless the return is HASHTABLE_SUCCESS, the caller
  * still owns the value, and must free it.
  */
-HashtableStatus hashtable_insert(Hashtable *table, const char *key, void *value);
+hashtable_status_t hashtable_insert(hashtable_t *table, const char *key, void *value);
 
 /**
  * @brief Finds an item in the hashtable.
@@ -56,7 +56,7 @@ HashtableStatus hashtable_insert(Hashtable *table, const char *key, void *value)
  * valid after table growth. There is no modification of the
  * table in this function.
  */
-void *hashtable_find(const Hashtable *table, const char *key);
+void *hashtable_find(const hashtable_t *table, const char *key);
 
 /**
  * @brief Frees the hashtable and all owned keys, callback frees the values.
@@ -68,7 +68,7 @@ void *hashtable_find(const Hashtable *table, const char *key);
  * is given. The callback must not access the hashtable itself. The
  * order of callback calls is unspecified.
  */
-void hashtable_destroy(Hashtable *table, HashtableCallback callback);
+void hashtable_destroy(hashtable_t *table, hashtable_callback callback);
 
 /**
  * @brief Gets item count in hashtable.
@@ -76,4 +76,4 @@ void hashtable_destroy(Hashtable *table, HashtableCallback callback);
  * @returns Item count of hashtable, or 0 on NULL table.
  * @note Counted are stored items (keys).
  */
-size_t hashtable_count(const Hashtable *table);
+size_t hashtable_count(const hashtable_t *table);

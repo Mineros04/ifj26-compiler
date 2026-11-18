@@ -17,7 +17,7 @@
 #define HASHTABLE_MAX_LOAD_NUM 7
 #define HASHTABLE_MAX_LOAD_DEN 10
 
-typedef struct slot {
+typedef struct {
     char *key; // if key is NULL -> slot is empty
     void *value;
 } slot_t;
@@ -82,7 +82,7 @@ static slot_t *item_probe(slot_t *item_array, size_t capacity, const char *key) 
  * unchanged on failure. Any slot pointer obtained before the call
  * is invalidated.
  */
-static bool table_expand(Hashtable *table) {
+static bool table_expand(hashtable_t *table) {
     // size_t overflow protection, should never fail (memory would run out before this fails)
     if (table->capacity >= (SIZE_MAX / HASHTABLE_EXPANSION_FACTOR)) {
         return false;
@@ -111,13 +111,13 @@ static bool table_expand(Hashtable *table) {
     return true;
 }
 
-Hashtable *hashtable_create(size_t init_capacity) {
+hashtable_t *hashtable_create(size_t init_capacity) {
     if (init_capacity < HASHTABLE_MIN_CAPACITY) {
         // capacity less than minimal capacity, not acceptable for hashtable
         return nullptr;
     }
 
-    Hashtable *new_table = malloc(sizeof(Hashtable)); // allocate new hashtable
+    hashtable_t *new_table = malloc(sizeof(hashtable_t)); // allocate new hashtable
     if (!new_table) {
         // table allocation failure
         return nullptr;
@@ -137,7 +137,7 @@ Hashtable *hashtable_create(size_t init_capacity) {
     return new_table;
 }
 
-HashtableStatus hashtable_insert(Hashtable *table, const char *key, void *value) {
+hashtable_status_t hashtable_insert(hashtable_t *table, const char *key, void *value) {
     assert(table && key && key[0] && value);
 
     // look up key, in case item exists
@@ -171,7 +171,7 @@ HashtableStatus hashtable_insert(Hashtable *table, const char *key, void *value)
     return HASHTABLE_SUCCESS;
 }
 
-void *hashtable_find(const Hashtable *table, const char *key) {
+void *hashtable_find(const hashtable_t *table, const char *key) {
     if (!table || !key) {
         // check preconditions
         return nullptr;
@@ -187,7 +187,7 @@ void *hashtable_find(const Hashtable *table, const char *key) {
     return slot->value;
 }
 
-void hashtable_destroy(Hashtable *table, HashtableCallback callback) {
+void hashtable_destroy(hashtable_t *table, hashtable_callback callback) {
     if (!table) {
         return;
     }
@@ -205,6 +205,6 @@ void hashtable_destroy(Hashtable *table, HashtableCallback callback) {
     free(table);
 }
 
-size_t hashtable_count(const Hashtable *table) {
+size_t hashtable_count(const hashtable_t *table) {
     return table ? table->count : 0;
 }

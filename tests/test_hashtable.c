@@ -69,12 +69,12 @@ UTEST(hashtable, create_rejects_capacity_below_two) {
 }
 
 UTEST(hashtable, create_accepts_minimal_and_large_capacity) {
-    Hashtable *minimal = hashtable_create(2);
+    hashtable_t *minimal = hashtable_create(2);
     ASSERT_TRUE(minimal != nullptr);
     ASSERT_EQ(hashtable_count(minimal), (size_t)0);
     hashtable_destroy(minimal, nullptr);
 
-    Hashtable *large = hashtable_create(100000);
+    hashtable_t *large = hashtable_create(100000);
     ASSERT_TRUE(large != nullptr);
     ASSERT_EQ(hashtable_count(large), (size_t)0);
     hashtable_destroy(large, nullptr);
@@ -89,7 +89,7 @@ UTEST(hashtable, count_of_null_table_is_zero) {
 // ---------------------------------------------------------------------------
 
 UTEST(hashtable, find_on_empty_table_returns_null) {
-    Hashtable *table = hashtable_create(8);
+    hashtable_t *table = hashtable_create(8);
     ASSERT_TRUE(table != nullptr);
     ASSERT_TRUE(hashtable_find(table, "x") == nullptr);
     hashtable_destroy(table, nullptr);
@@ -98,7 +98,7 @@ UTEST(hashtable, find_on_empty_table_returns_null) {
 UTEST(hashtable, insert_then_find_returns_same_pointer) {
     int a = 1;
     int b = 2;
-    Hashtable *table = hashtable_create(8);
+    hashtable_t *table = hashtable_create(8);
     ASSERT_TRUE(table != nullptr);
 
     ASSERT_EQ((int)hashtable_insert(table, "alpha", &a), HASHTABLE_SUCCESS);
@@ -114,7 +114,7 @@ UTEST(hashtable, insert_then_find_returns_same_pointer) {
 
 UTEST(hashtable, find_missing_key_returns_null) {
     int a = 1;
-    Hashtable *table = hashtable_create(8);
+    hashtable_t *table = hashtable_create(8);
     ASSERT_TRUE(table != nullptr);
     ASSERT_EQ((int)hashtable_insert(table, "present", &a), HASHTABLE_SUCCESS);
 
@@ -128,7 +128,7 @@ UTEST(hashtable, find_missing_key_returns_null) {
 UTEST(hashtable, duplicate_insert_keeps_original_value) {
     int first = 1;
     int second = 2;
-    Hashtable *table = hashtable_create(8);
+    hashtable_t *table = hashtable_create(8);
     ASSERT_TRUE(table != nullptr);
 
     ASSERT_EQ((int)hashtable_insert(table, "key", &first), HASHTABLE_SUCCESS);
@@ -148,7 +148,7 @@ UTEST(hashtable, caller_keeps_ownership_of_value_after_duplicate) {
     ASSERT_TRUE(first != nullptr);
     ASSERT_TRUE(second != nullptr);
 
-    Hashtable *table = hashtable_create(4);
+    hashtable_t *table = hashtable_create(4);
     ASSERT_TRUE(table != nullptr);
 
     ASSERT_EQ((int)hashtable_insert(table, "key", first), HASHTABLE_SUCCESS);
@@ -162,7 +162,7 @@ UTEST(hashtable, key_is_copied_by_table) {
     int value = 7;
     char buffer[16] = "mutable";
 
-    Hashtable *table = hashtable_create(8);
+    hashtable_t *table = hashtable_create(8);
     ASSERT_TRUE(table != nullptr);
     ASSERT_EQ((int)hashtable_insert(table, buffer, &value), HASHTABLE_SUCCESS);
 
@@ -190,7 +190,7 @@ static bool check_small_start(size_t init_capacity) {
     char key[32];
     bool ok = true;
 
-    Hashtable *table = hashtable_create(init_capacity);
+    hashtable_t *table = hashtable_create(init_capacity);
     if (!table) {
         return false;
     }
@@ -228,7 +228,7 @@ UTEST(hashtable, many_keys_are_all_found_after_growth) {
     ASSERT_TRUE(values != nullptr);
     char key[32];
 
-    Hashtable *table = hashtable_create(2);
+    hashtable_t *table = hashtable_create(2);
     ASSERT_TRUE(table != nullptr);
 
     for (int i = 0; i < KEY_COUNT; i++) {
@@ -258,7 +258,7 @@ UTEST(hashtable, similar_keys_are_distinguished) {
     };
     int values[KEY_COUNT];
 
-    Hashtable *table = hashtable_create(2);
+    hashtable_t *table = hashtable_create(2);
     ASSERT_TRUE(table != nullptr);
 
     for (size_t i = 0; i < KEY_COUNT; i++) {
@@ -286,7 +286,7 @@ UTEST(hashtable, long_keys_differing_in_last_character) {
 
     int one = 1;
     int two = 2;
-    Hashtable *table = hashtable_create(2);
+    hashtable_t *table = hashtable_create(2);
     ASSERT_TRUE(table != nullptr);
 
     ASSERT_EQ((int)hashtable_insert(table, first, &one), HASHTABLE_SUCCESS);
@@ -308,7 +308,7 @@ UTEST(hashtable, destroy_calls_callback_once_per_value) {
     int values[KEY_COUNT];
     char key[32];
 
-    Hashtable *table = hashtable_create(2);
+    hashtable_t *table = hashtable_create(2);
     ASSERT_TRUE(table != nullptr);
     for (int i = 0; i < KEY_COUNT; i++) {
         values[i] = i;
@@ -322,7 +322,7 @@ UTEST(hashtable, destroy_calls_callback_once_per_value) {
 }
 
 UTEST(hashtable, destroy_empty_table_does_not_call_callback) {
-    Hashtable *table = hashtable_create(8);
+    hashtable_t *table = hashtable_create(8);
     ASSERT_TRUE(table != nullptr);
 
     callback_calls = 0;
@@ -332,7 +332,7 @@ UTEST(hashtable, destroy_empty_table_does_not_call_callback) {
 
 UTEST(hashtable, destroy_with_null_callback_leaves_values_untouched) {
     int value = 42;
-    Hashtable *table = hashtable_create(4);
+    hashtable_t *table = hashtable_create(4);
     ASSERT_TRUE(table != nullptr);
     ASSERT_EQ((int)hashtable_insert(table, "key", &value), HASHTABLE_SUCCESS);
 
