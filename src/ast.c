@@ -7,7 +7,7 @@
  */
 
 #include "ast.h"
-#include "str.h"
+#include "shared/str.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
