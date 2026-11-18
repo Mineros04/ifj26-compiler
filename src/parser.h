@@ -7,23 +7,31 @@
 #pragma once
 
 #include "ast.h"
+#include "lexer.h"
 
 // Forward declaration of internal parser state
 typedef struct Parser Parser;
 
 /**
- * @brief Parses the entire source program from standard input and builds the AST.
+ * @brief Parses the entire source program using the given lexer and builds the AST.
  *
- * Terminates with exit code 2 on syntax error, or 99 on internal allocation error.
+ * @param lex Pointer to an initialized lexer instance.
+ * @returns Pointer to the root AST_PROGRAM node (never `nullptr`).
  *
- * @returns Pointer to the root AST_PROGRAM node (never nullptr).
+ * @throws Error 1 - Lexical error
+ * @throws Error 2 - Syntax error
+ * @throws Error 99 - Allocation failed
  */
-[[nodiscard]] AstNode *parse_program(void);
+[[nodiscard]] AstNode *parse_program(lexer_t *lex);
 
 /**
  * @brief Parses an expression using precedence analysis (implemented by expression module).
  *
  * @param p Pointer to the active parser state.
  * @returns Pointer to the root AST node of the parsed expression.
+ *
+ * @throws Error 1 - Lexical error
+ * @throws Error 2 - Syntax error
+ * @throws Error 99 - Allocation failed
  */
 [[nodiscard]] AstNode *parse_expression(Parser *p);

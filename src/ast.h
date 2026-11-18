@@ -6,8 +6,7 @@
  * Project: IFJ26 Compiler Implementation
  */
 
-#ifndef AST_H
-#define AST_H
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -227,5 +226,3 @@ AstNode *ast_new_lit_unit(int line);
 // Memory Management
 
 void ast_free(AstNode *node);
-
-#endif // AST_H
