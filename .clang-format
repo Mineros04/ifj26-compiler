@@ -20,6 +20,8 @@ AllowShortCaseLabelsOnASingleLine: false
 AllowShortEnumsOnASingleLine: false
 IndentCaseLabels: false
 
+AlignConsecutiveAssignments: Consecutive
+
 # Use conventional C spacing: Token *token, if (...), scan_token(...).
 DerivePointerAlignment: false
 PointerAlignment: Right
@@ -27,12 +29,14 @@ SpaceBeforeParens: ControlStatements
 
 # When a parameter or argument list wraps, put each item on its own line.
 BinPackArguments: false
-BinPackParameters: false
+BinPackParameters: OnePerLine
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 
 # Sort alphabetically inside each block; blank lines separate independent blocks.
-SortIncludes: true
+SortIncludes:
+  Enabled: true
+  IgnoreCase: false
 IncludeBlocks: Preserve
 
 # Use one category, with the matching module header automatically ranked first.
