@@ -46,3 +46,46 @@ typedef enum {
     /// allocation failure.
     ERR_COMPILER_INTERNAL = 99
 } error_code_t;
+
+/**
+ * @brief Throws a compilation error and immediately terminates the program.
+ * @param err The compilation error to throw. Must not be `ERR_SUCCESS`. Also
+ * used as the program's exit code.
+ * @param line The line (counted from 1) at which an error occurred. When set to 0, the line is
+ * considered to be unknown.
+ * @param col The column (counted from 1) at which the error occurred. When set to 0, the column is
+ * considered to be unknown.
+ * @param fmt The format string.
+ * @param ... Arguments for the format string.
+ *
+ * @throws Error specified by argument `err`. The formatted message is printed to `stderr`.
+ */
+[[noreturn, gnu::format(printf, 4, 5)]]
+void error_throw_compile(error_code_t err, size_t line, size_t col, const char *fmt, ...);
+
+/**
+ * @brief Throws an internal compiler error and immediately terminates the program.
+ * @param fmt The format string.
+ * @param ... Arguments for the format string.
+ *
+ * @note The behavior is equivalent to the following call:
+ * ```c
+ * error_throw_compile(ERR_COMPILER_INTERNAL, 0, 0, fmt, ...);
+ * ```
+ *
+ * @throws Error 99 - `evaluated fmt`
+ */
+[[noreturn, gnu::format(printf, 1, 2)]]
+void error_throw_internal(const char *fmt, ...);
+
+/**
+ * @brief Returns the human-readable name of an error.
+ * @param err The error to translate.
+ *
+ * @returns A statically allocated C string with the name of `err`. The string must not be freed or
+ * modified.
+ *
+ * @throws `UNREACHABLE()` if `err` is not a valid `error_code_t` value
+ */
+[[nodiscard]] const char *error_getname(error_code_t err);
+
