@@ -109,3 +109,56 @@ void error_throw_internal(const char *fmt, ...);
  */
 [[nodiscard]] const char *error_getname(error_code_t err);
 
+// =================================================================================================
+// ===== Safe Memory Allocation ====================================================================
+// =================================================================================================
+
+/**
+ * @brief Allocates a contiguous, uninitialized block of `size` bytes on the heap.
+ * @param size The number of bytes to allocate. May be 0.
+ * @note If `size` is 0, it is set to 1 by the function. The returned block is then considered
+ * empty; it may be passed to `free` or `safe_realloc`, but its contents must not be accessed.
+ *
+ * @returns A pointer to the allocated memory, guaranteed to be non-`nullptr`. Must be released with
+ * `free`.
+ *
+ * @throws Error 99 - Allocation failed.
+ */
+[[nodiscard]] void *safe_malloc(size_t size);
+
+/**
+ * @brief Allocates a contiguous, zero-initialized block on the heap, large enough to hold `count`
+ * elements of `size` bytes each.
+ * @param count The number of elements to allocate. May be 0.
+ * @param size The size of each element in bytes. May be 0.
+ * @note If either `count` or `size` is 0, both are set to 1 by the function. The returned block is
+ * then considered empty; it may be passed to `free` or `safe_realloc`, but its contents must not be
+ * accessed.
+ *
+ * @returns A pointer to the allocated memory, guaranteed to be non-`nullptr`. Must be released with
+ * `free`.
+ *
+ * @throws Error 99 - Allocation failed, including when `count * size` overflows `size_t`.
+ */
+[[nodiscard]] void *safe_calloc(size_t count, size_t size);
+
+/**
+ * @brief Resizes a previously allocated memory block, potentially moving it.
+ * @param ptr The memory block to resize. Must be either `nullptr`, or a pointer previously returned
+ * by `safe_malloc`, `safe_calloc` or `safe_realloc` that has not been freed yet. If `nullptr`, the
+ * call is equivalent to `safe_malloc(size)`.
+ * @param size The new size of the block in bytes. May be 0.
+ * @note If `size` is 0, it is set to 1 by the function, thus, a zero-size request never acts as
+ * `free(ptr)`. The returned block is then considered empty; it may be passed to `free` or
+ * `safe_realloc`, but its contents must not be accessed.
+ *
+ * @returns A pointer to the resized block, guaranteed to be non-`nullptr`. The contents of the
+ * original block are preserved up to the smaller of the old and new sizes. Any newly added bytes
+ * are uninitialized. Must be released with `free`.
+ *
+ * @warning After the call, `ptr` must no longer be used (not even compared with the returned
+ * pointer). Use the returned pointer instead.
+ *
+ * @throws Error 99 - Allocation failed.
+ */
+[[nodiscard]] void *safe_realloc(void *ptr, size_t size);
