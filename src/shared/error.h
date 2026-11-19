@@ -8,3 +8,41 @@
 
 #pragma once
 
+/**
+ * @brief All possible exit states that the compiler may produce.
+ *
+ * The enumerated value of each state is used as the compiler's exit code. Every state except for
+ * `ERR_SUCCESS` represents an error that terminates the program when thrown.
+ */
+typedef enum {
+    /// @brief A non-error, indicating successful compilation.
+    ERR_SUCCESS = 0,
+    /// @brief A lexical error, produced during the lexical analysis phase. This may indicate
+    /// invalid structure of a lexeme, a comment or indentation.
+    ERR_LEXICAL = 1,
+    /// @brief A syntax error, produced during the syntax analysis phase. This may indicate
+    /// incorrect syntax, a missing prologue, an invalid language construct, or an indentation
+    /// structure violation.
+    ERR_SYNTAX = 2,
+    /// @brief A semantic error, signifying an undefined function, variable, or type, or a
+    /// missing function with the `@main` annotation.
+    ERR_SEM_UNDEF = 3,
+    /// @brief A semantic error, signifying forbidden redefinition of a function, variable, or type.
+    ERR_SEM_REDEF = 4,
+    /// @brief A semantic error, signifying an invalid argument count or argument types in a
+    /// function call, or forbidden parameters declared in the function with the `@main` annotation.
+    ERR_SEM_INVALID_ARG = 5,
+    /// @brief A semantic error, signifying type incompatibility or invalid type inference in an
+    /// expression, assignment, initialization, return value, or control structure.
+    ERR_SEM_TYPE_MISMATCH = 6,
+    /// @brief A semantic error, signifying an attempt to write to an immutable variable or a formal
+    /// function parameter.
+    ERR_SEM_WRITE_IMMUT = 7,
+    /// @brief A semantic error, signifying any other error not covered by errors 3-7. This may
+    /// indicate a forbidden return statement, a non-exhaustive match statement, or a zero-step
+    /// range.
+    ERR_SEM_OTHER = 10,
+    /// @brief An internal compiler error not influenced by the compiled source code, typically an
+    /// allocation failure.
+    ERR_COMPILER_INTERNAL = 99
+} error_code_t;
