@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <stddef.h>
+
 /**
  * @brief Throws an internal compiler error if `cond` evaluates to false.
  * @param cond The condition expected to be true.
