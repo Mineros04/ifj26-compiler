@@ -9,6 +9,24 @@
 #pragma once
 
 /**
+ * @brief Throws an internal compiler error if `cond` evaluates to false.
+ * @param cond The condition expected to be true.
+ *
+ * The error message contains the source file, line and the stringified condition.
+ */
+#define ASSERT_COND(cond)                                                                          \
+    do {                                                                                           \
+        if (!(cond))                                                                               \
+            error_throw_internal("%s:%d: assertion '%s' failed", __FILE__, __LINE__, #cond);       \
+    } while (0)
+
+/**
+ * @brief Marks a code path that must never be reached. Throws an internal compiler error if it is.
+ *
+ */
+#define UNREACHABLE() error_throw_internal("%s:%d: unreachable", __FILE__, __LINE__)
+
+/**
  * @brief All possible exit states that the compiler may produce.
  *
  * The enumerated value of each state is used as the compiler's exit code. Every state except for
