@@ -55,3 +55,54 @@ static void throw_va(error_code_t err, size_t line, size_t col, const char *fmt,
 
     exit(err);
 }
+
+// ===== Error Handling =====
+
+void error_throw_compile(error_code_t err, size_t line, size_t col, const char *fmt, ...) {
+    ASSERT_COND(err != ERR_SUCCESS);
+
+    va_list args;
+    va_start(args);
+
+    throw_va(err, line, col, fmt, args);
+
+    // No need to call va_end, as any code after the error function call is unreachable.
+}
+
+void error_throw_internal(const char *fmt, ...) {
+    va_list args;
+    va_start(args);
+
+    throw_va(ERR_COMPILER_INTERNAL, 0, 0, fmt, args);
+
+    // No need to call va_end, as any code after the error function call is unreachable.
+}
+
+const char *error_getname(error_code_t err) {
+    switch (err) {
+    case ERR_SUCCESS:
+        return "Success";
+    case ERR_LEXICAL:
+        return "Lexical error";
+    case ERR_SYNTAX:
+        return "Syntax error";
+    case ERR_SEM_UNDEF:
+        return "Undefined symbol";
+    case ERR_SEM_REDEF:
+        return "Illegal redefinition";
+    case ERR_SEM_INVALID_ARG:
+        return "Invalid argument(s)";
+    case ERR_SEM_TYPE_MISMATCH:
+        return "Incompatible type(s)";
+    case ERR_SEM_WRITE_IMMUT:
+        return "Immutable write";
+    case ERR_SEM_OTHER:
+        return "Semantic error";
+    case ERR_COMPILER_INTERNAL:
+        return "Internal error";
+    }
+
+    // No default on purpose, so that compiler catches missing cases.
+    UNREACHABLE();
+}
+
