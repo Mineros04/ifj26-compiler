@@ -106,3 +106,47 @@ const char *error_getname(error_code_t err) {
     UNREACHABLE();
 }
 
+// ===== Safe Memory Allocation =====
+
+void *safe_malloc(size_t size) {
+    if (size == 0) {
+        size = 1;
+    }
+
+    void *ptr = malloc(size);
+    if (!ptr) {
+        error_throw_internal("malloc failed (%zu bytes)", size);
+    }
+
+    return ptr;
+}
+
+void *safe_calloc(size_t count, size_t size) {
+    if (count == 0 || size == 0) {
+        count = size = 1;
+    }
+
+    if (count > SIZE_MAX / size) {
+        error_throw_internal("calloc failed: %zu * %zu overflowed size_t", count, size);
+    }
+
+    void *ptr = calloc(count, size);
+    if (!ptr) {
+        error_throw_internal("calloc failed (%zu bytes)", count * size);
+    }
+
+    return ptr;
+}
+
+void *safe_realloc(void *ptr, size_t size) {
+    if (size == 0) {
+        size = 1;
+    }
+
+    void *new_ptr = realloc(ptr, size);
+    if (!new_ptr) {
+        error_throw_internal("realloc failed (%zu bytes)", size);
+    }
+
+    return new_ptr;
+}
