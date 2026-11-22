@@ -39,6 +39,9 @@ typedef struct {
     DataType return_type;
 } builtin_desc_t;
 
+// builtin functions, TODO: add builtins
+static const builtin_desc_t BUILTINS[] = {{.name = "test"}};
+
 /**
  * @brief Frees a symbol.
  * @param symbol Symbol to free.
@@ -278,4 +281,24 @@ symtable_insert_func(symtable_t *table, const char *name, func_desc_t descriptio
         assert(!"symtable_insert_func: unreachable switch statement reached");
         return SYMTABLE_OUT_OF_MEM;
     }
+}
+
+symtable_status_t symtable_register_builtins(symtable_t *table) {
+    assert(table);
+
+    for (size_t i = 0; i < (sizeof(BUILTINS) / sizeof(BUILTINS[0])); i++) {
+        func_desc_t function_desc = {.is_builtin      = true,
+                                     .is_main         = false,
+                                     .parameter_cnt   = BUILTINS[i].parameter_cnt,
+                                     .parameters      = BUILTINS[i].parameters,
+                                     .return_explicit = true,
+                                     .return_type     = BUILTINS[i].return_type};
+
+        symtable_status_t in_status =
+            symtable_insert_func(table, BUILTINS[i].name, function_desc, 0);
+        if (in_status != SYMTABLE_SUCCESS) {
+            return in_status;
+        }
+    }
+    return SYMTABLE_SUCCESS;
 }

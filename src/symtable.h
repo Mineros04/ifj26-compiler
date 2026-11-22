@@ -90,8 +90,10 @@ void symtable_destroy(symtable_t *table);
  * @brief Populates the global scope of the symbol table with builtin standard functions.
  * @param table Pointer to symbol table (non-NULL).
  * @returns SYMTABLE_SUCCESS on successful population, SYMTABLE_ITEM_EXISTS if a duplicate item is
- * added (shouldn't happen), SYMTABLE_OUT_OF_MEM if there is an allocation failure during
- * population.
+ * added (happens when called twice or more times on same table), SYMTABLE_OUT_OF_MEM if there is an
+ * allocation failure during population.
+ * @note If population fails, the symbol table is left partly filled - the caller must destroy the
+ * symbol table in that case. Builtin functions have a line number of 0.
  */
 [[nodiscard]] symtable_status_t symtable_register_builtins(symtable_t *table);
 
