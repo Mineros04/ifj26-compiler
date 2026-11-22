@@ -7,6 +7,7 @@
 #include "symtable.h"
 #include "shared/hashtable.h"
 #include <assert.h>
+#include <string.h>
 
 #define SYMTABLE_GLOBAL_CAP 32 // higher due to builtin functions
 #define SYMTABLE_LOCAL_CAP 8
@@ -138,4 +139,49 @@ void symtable_pop_scope(symtable_t *table) {
     scope_t *parent = table->current_scope->parent_scope;
     destroy_scope(table->current_scope);
     table->current_scope = parent;
+}
+
+symtable_status_t symtable_insert_var(symtable_t *table,
+                                      const char *name,
+                                      var_desc_t description,
+                                      int line_num,
+                                      symbol_t **out_symbol) {
+    assert(table && name && name[0] != '\0' && table->current_scope->parent_scope &&
+           "symtable_insert_var: one or more conditions are not met");
+    symbol_t *new_var = calloc(1, sizeof(symbol_t));
+    if (!new_var) {
+        return SYMTABLE_OUT_OF_MEM;
+    }
+
+    new_var->identifier = strdup(name);
+    if (!new_var->identifier) {
+        free_symbol(new_var);
+        return SYMTABLE_OUT_OF_MEM;
+    }
+
+    new_var->data.variable    = description;
+    new_var->data.variable.id = table->next_id;
+    new_var->line_number      = line_num;
+    new_var->sym_type         = SYMBOL_VARIABLE;
+
+    hashtable_status_t in_status = hashtable_insert(table->current_scope->namespace, name, new_var);
+    switch (in_status) {
+    case HASHTABLE_SUCCESS:
+        table->next_id++;
+        if (out_symbol) {
+            out_symbol = &new_var;
+        }
+        return SYMTABLE_SUCCESS;
+
+    case HASHTABLE_ITEM_EXISTS:
+        free_symbol(new_var);
+        return SYMTABLE_ITEM_EXISTS;
+
+    case HASHTABLE_OUT_OF_MEM:
+        free_symbol(new_var);
+        return SYMTABLE_OUT_OF_MEM;
+    default:
+        assert(!"symtable_insert_var: unreachable switch statement reached");
+        return SYMTABLE_OUT_OF_MEM;
+    }
 }
