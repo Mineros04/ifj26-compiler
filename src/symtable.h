@@ -65,7 +65,7 @@ typedef struct {
 typedef struct {
     symbol_type_t sym_type; // symbol type (var/func)
     char *identifier;       // name of symbol
-    unsigned line_number;   // line number, used for error messages
+    int line_number;        // line number, used for error messages
     union {
         var_desc_t variable;  // variable description
         func_desc_t function; // function description

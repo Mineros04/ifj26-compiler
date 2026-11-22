@@ -11,6 +11,7 @@
 
 #define SYMTABLE_GLOBAL_CAP 32 // higher due to builtin functions
 #define SYMTABLE_LOCAL_CAP 8
+#define BUILTIN_MAX_PARAMS 3
 
 // assert correct sizes for hashtable size minimum (2)
 static_assert(SYMTABLE_GLOBAL_CAP >= 2, "hashtable_create needs a capacity of at least 2");
@@ -29,6 +30,14 @@ struct symtable {
     scope_t *current_scope; // must never be nullptr, if no local scopes are pushed -> global scope
     unsigned next_id;       // next id to assign to variable
 };
+
+// builtin function description struct
+typedef struct {
+    const char *name;
+    size_t parameter_cnt;
+    param_desc_t parameters[BUILTIN_MAX_PARAMS];
+    DataType return_type;
+} builtin_desc_t;
 
 /**
  * @brief Frees a symbol.
@@ -201,4 +210,72 @@ symbol_t *symtable_find_var(const symtable_t *table, const char *name) {
     }
 
     return nullptr;
+}
+
+symbol_t *symtable_find_func(const symtable_t *table, const char *name) {
+    assert(table && name && name[0] != '\0' &&
+           "symtable_find_func: one or more conditions are not met");
+    return hashtable_find(table->global_scope->namespace, name);
+}
+
+symtable_status_t
+symtable_insert_func(symtable_t *table, const char *name, func_desc_t description, int line_num) {
+    assert(table && name && name[0] != '\0' &&
+           "symtable_insert_func: one or more conditions are not met");
+    assert((!description.parameter_cnt || description.parameters) &&
+           "symtable_insert_func: parameter count is non-zero and parameter array is nullptr");
+
+    symbol_t *new_func = calloc(1, sizeof(symbol_t));
+    if (!new_func) {
+        return SYMTABLE_OUT_OF_MEM;
+    }
+
+    new_func->identifier = strdup(name);
+    if (!new_func->identifier) {
+        free_symbol(new_func);
+        return SYMTABLE_OUT_OF_MEM;
+    }
+
+    new_func->data.function            = description;
+    new_func->data.function.parameters = nullptr; // copy this, assign nullptr for now
+    new_func->line_number              = line_num;
+    new_func->sym_type                 = SYMBOL_FUNCTION;
+
+    if (new_func->data.function.parameter_cnt != 0) {
+        param_desc_t *temp = calloc(new_func->data.function.parameter_cnt, sizeof(param_desc_t));
+        if (!temp) {
+            free_symbol(new_func);
+            return SYMTABLE_OUT_OF_MEM;
+        }
+
+        memcpy(temp,
+               description.parameters,
+               new_func->data.function.parameter_cnt * sizeof(param_desc_t));
+
+        new_func->data.function.parameters = temp;
+    }
+
+    if (new_func->data.function.return_explicit) {
+        new_func->data.function.inference_state = RETURN_FINALIZED;
+    } else {
+        new_func->data.function.inference_state = RETURN_UNRESOLVED;
+        new_func->data.function.return_type     = TYPE_UNKNOWN;
+    }
+
+    hashtable_status_t in_status = hashtable_insert(table->global_scope->namespace, name, new_func);
+    switch (in_status) {
+    case HASHTABLE_SUCCESS:
+        return SYMTABLE_SUCCESS;
+
+    case HASHTABLE_ITEM_EXISTS:
+        free_symbol(new_func);
+        return SYMTABLE_ITEM_EXISTS;
+
+    case HASHTABLE_OUT_OF_MEM:
+        free_symbol(new_func);
+        return SYMTABLE_OUT_OF_MEM;
+    default:
+        assert(!"symtable_insert_func: unreachable switch statement reached");
+        return SYMTABLE_OUT_OF_MEM;
+    }
 }
