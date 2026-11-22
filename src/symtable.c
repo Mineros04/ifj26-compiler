@@ -1,5 +1,5 @@
 /**
- * @file symtable.h
+ * @file symtable.c
  * @authors Tomáš Komenda (xkoment00)
  * @brief Symbol table implementation.
  */
@@ -7,6 +7,7 @@
 #include "symtable.h"
 #include "shared/hashtable.h"
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define SYMTABLE_GLOBAL_CAP 32 // higher due to builtin functions
@@ -40,7 +41,38 @@ typedef struct {
 } builtin_desc_t;
 
 // builtin functions, TODO: add builtins
-static const builtin_desc_t BUILTINS[] = {{.name = "test"}};
+static const builtin_desc_t BUILTINS[] = {
+    {.name          = "print",
+     .parameter_cnt = 1,
+     .parameters    = {{.accepts_any = true}},
+     .return_type   = TYPE_UNIT},
+    {.name = "readLine", .return_type = TYPE_STRING},
+    {.name = "readInt", .return_type = TYPE_INT},
+    {.name = "readDouble", .return_type = TYPE_DOUBLE},
+    {.name          = "toStr",
+     .parameter_cnt = 1,
+     .parameters    = {{.accepts_any = true}},
+     .return_type   = TYPE_STRING},
+    {.name          = "toInt",
+     .parameter_cnt = 1,
+     .parameters    = {{.data_type = TYPE_DOUBLE}},
+     .return_type   = TYPE_INT},
+    {.name          = "strLength",
+     .parameter_cnt = 1,
+     .parameters    = {{.data_type = TYPE_STRING}},
+     .return_type   = TYPE_INT},
+    {.name          = "subStr",
+     .parameter_cnt = 3,
+     .parameters  = {{.data_type = TYPE_STRING}, {.data_type = TYPE_INT}, {.data_type = TYPE_INT}},
+     .return_type = TYPE_STRING},
+    {.name          = "ord",
+     .parameter_cnt = 2,
+     .parameters    = {{.data_type = TYPE_STRING}, {.data_type = TYPE_INT}},
+     .return_type   = TYPE_INT},
+    {.name          = "chr",
+     .parameter_cnt = 1,
+     .parameters    = {{.data_type = TYPE_INT}},
+     .return_type   = TYPE_STRING}};
 
 /**
  * @brief Frees a symbol.
@@ -91,7 +123,7 @@ static scope_t *create_scope(scope_t *parent_scope) {
 
 /**
  * @brief Destroys an existing scope.
- * @param scope Scope to destroy (must not be global scope, else nothing happens).
+ * @param scope Scope to destroy (caller decides which scope).
  */
 static void destroy_scope(scope_t *scope) {
     hashtable_destroy(scope->namespace, free_symbol);
@@ -136,10 +168,9 @@ symtable_status_t symtable_push_scope(symtable_t *table) {
     scope_t *new_scope = create_scope(table->current_scope);
     if (!new_scope) {
         return SYMTABLE_OUT_OF_MEM;
-    } else {
-        table->current_scope = new_scope;
-        return SYMTABLE_SUCCESS;
     }
+    table->current_scope = new_scope;
+    return SYMTABLE_SUCCESS;
 }
 
 void symtable_pop_scope(symtable_t *table) {
@@ -181,7 +212,7 @@ symtable_status_t symtable_insert_var(symtable_t *table,
     case HASHTABLE_SUCCESS:
         table->next_id++;
         if (out_symbol) {
-            out_symbol = &new_var;
+            *out_symbol = new_var;
         }
         return SYMTABLE_SUCCESS;
 
