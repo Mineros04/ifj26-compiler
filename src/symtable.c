@@ -6,6 +6,7 @@
 
 #include "symtable.h"
 #include "shared/hashtable.h"
+#include <assert.h>
 
 #define SYMTABLE_GLOBAL_CAP 32 // higher due to builtin functions
 #define SYMTABLE_LOCAL_CAP 8
@@ -100,4 +101,41 @@ symtable_t *symtable_create(void) {
     new_table->next_id       = 0;
 
     return new_table;
+}
+
+void symtable_destroy(symtable_t *table) {
+    if (!table) {
+        return;
+    }
+
+    while (table->current_scope->parent_scope) {
+        scope_t *parent = table->current_scope->parent_scope;
+        destroy_scope(table->current_scope);
+
+        table->current_scope = parent;
+    }
+    destroy_scope(table->global_scope);
+    free(table);
+}
+
+symtable_status_t symtable_push_scope(symtable_t *table) {
+    assert(table && "symtable_push_scope: table is nullptr");
+    scope_t *new_scope = create_scope(table->current_scope);
+    if (!new_scope) {
+        return SYMTABLE_OUT_OF_MEM;
+    } else {
+        table->current_scope = new_scope;
+        return SYMTABLE_SUCCESS;
+    }
+}
+
+void symtable_pop_scope(symtable_t *table) {
+    assert(table && "symtable_pop_scope: table is nullptr");
+    if (!table->current_scope->parent_scope) {
+        return;
+    }
+
+    scope_t *parent = table->current_scope->parent_scope;
+    destroy_scope(table->current_scope);
+    table->current_scope = parent;
 }
