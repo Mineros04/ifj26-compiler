@@ -7,7 +7,12 @@
 #include "symtable.h"
 #include "shared/hashtable.h"
 
-#define HASHTABLE_MIN_CAPACITY 2
+#define SYMTABLE_GLOBAL_CAP 32 // higher due to builtin functions
+#define SYMTABLE_LOCAL_CAP 8
+
+// assert correct sizes for hashtable size minimum (2)
+static_assert(SYMTABLE_GLOBAL_CAP >= 2, "hashtable_create needs a capacity of at least 2");
+static_assert(SYMTABLE_LOCAL_CAP >= 2, "hashtable_create needs a capacity of at least 2");
 
 // scope struct
 typedef struct scope {
@@ -55,7 +60,12 @@ static scope_t *create_scope(scope_t *parent_scope) {
         return nullptr;
     }
 
-    new_scope->namespace = hashtable_create(HASHTABLE_MIN_CAPACITY);
+    if (!parent_scope) {
+        new_scope->namespace = hashtable_create(SYMTABLE_GLOBAL_CAP);
+    } else {
+        new_scope->namespace = hashtable_create(SYMTABLE_LOCAL_CAP);
+    }
+
     if (!new_scope->namespace) {
         free(new_scope);
         return nullptr;
@@ -72,4 +82,22 @@ static scope_t *create_scope(scope_t *parent_scope) {
 static void destroy_scope(scope_t *scope) {
     hashtable_destroy(scope->namespace, free_symbol);
     free(scope);
+}
+
+symtable_t *symtable_create(void) {
+    symtable_t *new_table = malloc(sizeof(symtable_t));
+    if (!new_table) {
+        return nullptr;
+    }
+
+    new_table->global_scope = create_scope(nullptr);
+    if (!new_table->global_scope) {
+        free(new_table);
+        return nullptr;
+    }
+
+    new_table->current_scope = new_table->global_scope;
+    new_table->next_id       = 0;
+
+    return new_table;
 }
