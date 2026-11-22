@@ -185,3 +185,20 @@ symtable_status_t symtable_insert_var(symtable_t *table,
         return SYMTABLE_OUT_OF_MEM;
     }
 }
+
+symbol_t *symtable_find_var(const symtable_t *table, const char *name) {
+    assert(table && name && name[0] != '\0' &&
+           "symtable_find_var: one or more conditions are not met");
+    scope_t *cursor = table->current_scope;
+
+    while (cursor->parent_scope) {
+        symbol_t *lookup = hashtable_find(cursor->namespace, name);
+        if (lookup) {
+            return lookup;
+        }
+
+        cursor = cursor->parent_scope;
+    }
+
+    return nullptr;
+}
