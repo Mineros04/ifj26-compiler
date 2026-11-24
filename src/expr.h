@@ -11,6 +11,7 @@
 // #include "symtable.h" // symtable_t
 #include <assert.h>
 
+// terminal types
 typedef enum {
     EXPR_TERMINAL_PRIORITY_1,
     EXPR_TERMINAL_PRIORITY_2,
@@ -24,6 +25,7 @@ typedef enum {
     EXPR_TERMINAL_COUNT // total count of terminals
 } expr_terminal_t;
 
+// terminal relations
 typedef enum {
     EXPR_RELATION_ERROR,
     EXPR_RELATION_ACCEPT,
