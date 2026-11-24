@@ -12,17 +12,110 @@
 #include <assert.h>
 
 typedef enum {
-    TERMINAL_PRIORITY_1,
-    TERMINAL_PRIORITY_2,
-    TERMINAL_PRIORITY_3,
-    TERMINAL_PRIORITY_4,
-    TERMINAL_PRIORITY_5,
-    TERMINAL_OPERAND,
-    TERMINAL_END_EXPRESSION,
-    TERMINAL_OPEN_PAREN,
-    TERMINAL_CLOSE_PAREN,
-    TERMINAL_COUNT // total count of terminals
+    EXPR_TERMINAL_PRIORITY_1,
+    EXPR_TERMINAL_PRIORITY_2,
+    EXPR_TERMINAL_PRIORITY_3,
+    EXPR_TERMINAL_PRIORITY_4,
+    EXPR_TERMINAL_PRIORITY_5,
+    EXPR_TERMINAL_OPERAND,
+    EXPR_TERMINAL_END_EXPRESSION,
+    EXPR_TERMINAL_OPEN_PAREN,
+    EXPR_TERMINAL_CLOSE_PAREN,
+    EXPR_TERMINAL_COUNT // total count of terminals
 } expr_terminal_t;
+
+typedef enum {
+    EXPR_RELATION_ERROR,
+    EXPR_RELATION_ACCEPT,
+    EXPR_RELATION_SHIFT,
+    EXPR_RELATION_REDUCE,
+    EXPR_RELATION_EQUAL
+} expr_relation_t;
+
+// precedence table for terminals & their relations
+// row: terminal on stack; column: incoming terminal
+static const expr_relation_t RELATION_TABLE[EXPR_TERMINAL_COUNT][EXPR_TERMINAL_COUNT] = {
+    [EXPR_TERMINAL_PRIORITY_1]     = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
+    [EXPR_TERMINAL_PRIORITY_2]     = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
+    [EXPR_TERMINAL_PRIORITY_3]     = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
+    [EXPR_TERMINAL_PRIORITY_4]     = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_ERROR,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
+    [EXPR_TERMINAL_PRIORITY_5]     = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_ERROR,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
+    [EXPR_TERMINAL_OPERAND]        = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_ERROR,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_ERROR,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
+    [EXPR_TERMINAL_OPEN_PAREN]     = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_EQUAL,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_ERROR},
+    [EXPR_TERMINAL_CLOSE_PAREN]    = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_ERROR,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_ERROR,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
+    [EXPR_TERMINAL_END_EXPRESSION] = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_ERROR,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_ACCEPT}};
 
 /**
  * @brief Classifes token by behavior & priority.
@@ -32,85 +125,85 @@ typedef enum {
 static expr_terminal_t expr_classify_token(token_type_t token) {
     switch (token) {
     case TOK_INDENT:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_DEDENT:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_NEWLINE:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_EOF:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_IDENT:
-        return TERMINAL_OPERAND;
+        return EXPR_TERMINAL_OPERAND;
     case TOK_LIT_INT:
-        return TERMINAL_OPERAND;
+        return EXPR_TERMINAL_OPERAND;
     case TOK_LIT_DOUBLE:
-        return TERMINAL_OPERAND;
+        return EXPR_TERMINAL_OPERAND;
     case TOK_LIT_STRING:
-        return TERMINAL_OPERAND;
+        return EXPR_TERMINAL_OPERAND;
     case TOK_KW_IMPORT:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_DEF:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_IF:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_THEN:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_ELSE:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_WHILE:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_DO:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_RETURN:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_VAL:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_VAR:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_INT:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_DOUBLE:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_STRING:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_KW_UNIT:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_OP_PLUS:
-        return TERMINAL_PRIORITY_3;
+        return EXPR_TERMINAL_PRIORITY_3;
     case TOK_OP_MINUS:
-        return TERMINAL_PRIORITY_3;
+        return EXPR_TERMINAL_PRIORITY_3;
     case TOK_OP_STAR:
-        return TERMINAL_PRIORITY_2;
+        return EXPR_TERMINAL_PRIORITY_2;
     case TOK_OP_SLASH:
-        return TERMINAL_PRIORITY_2;
+        return EXPR_TERMINAL_PRIORITY_2;
     case TOK_OP_EQ:
-        return TERMINAL_PRIORITY_5;
+        return EXPR_TERMINAL_PRIORITY_5;
     case TOK_OP_NEQ:
-        return TERMINAL_PRIORITY_5;
+        return EXPR_TERMINAL_PRIORITY_5;
     case TOK_OP_LT:
-        return TERMINAL_PRIORITY_4;
+        return EXPR_TERMINAL_PRIORITY_4;
     case TOK_OP_LE:
-        return TERMINAL_PRIORITY_4;
+        return EXPR_TERMINAL_PRIORITY_4;
     case TOK_OP_GT:
-        return TERMINAL_PRIORITY_4;
+        return EXPR_TERMINAL_PRIORITY_4;
     case TOK_OP_GE:
-        return TERMINAL_PRIORITY_4;
+        return EXPR_TERMINAL_PRIORITY_4;
     case TOK_OP_ASSIGN:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_SEP_LPAREN:
-        return TERMINAL_OPEN_PAREN;
+        return EXPR_TERMINAL_OPEN_PAREN;
     case TOK_SEP_RPAREN:
-        return TERMINAL_CLOSE_PAREN;
+        return EXPR_TERMINAL_CLOSE_PAREN;
     case TOK_SEP_COMMA:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_SEP_COLON:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_SEP_SEMI:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_SEP_DOT:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_AT_MAIN:
-        return TERMINAL_END_EXPRESSION;
+        return EXPR_TERMINAL_END_EXPRESSION;
     }
 
     assert(!"expr_classify_token: unreachable statement reached");
@@ -125,10 +218,23 @@ static expr_terminal_t expr_classify_token(token_type_t token) {
  */
 static expr_terminal_t expr_resolve_terminal(expr_terminal_t terminal,
                                              expr_terminal_t prev_terminal) {
-    if (terminal == TERMINAL_PRIORITY_3 &&
-        (prev_terminal != TERMINAL_OPERAND && prev_terminal != TERMINAL_CLOSE_PAREN)) {
-        return TERMINAL_PRIORITY_1;
+    if (terminal == EXPR_TERMINAL_PRIORITY_3 &&
+        (prev_terminal != EXPR_TERMINAL_OPERAND && prev_terminal != EXPR_TERMINAL_CLOSE_PAREN)) {
+        return EXPR_TERMINAL_PRIORITY_1;
     }
 
     return terminal;
+}
+
+/**
+ * @brief Looks up the relation between two terminals (stack top & incoming terminal)
+ * @param terminal Terminal on stack top (the row in the table).
+ * @param next_terminal Incoming terminal (the column in the table).
+ * @returns Relation for the two terminals.
+ */
+static expr_relation_t expr_lookup_relation(expr_terminal_t terminal,
+                                            expr_terminal_t next_terminal) {
+    assert(terminal < EXPR_TERMINAL_COUNT && next_terminal < EXPR_TERMINAL_COUNT &&
+           "expr_lookup_relation: terminal is out of range");
+    return RELATION_TABLE[terminal][next_terminal];
 }
