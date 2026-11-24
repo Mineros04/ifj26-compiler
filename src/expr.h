@@ -34,6 +34,35 @@ typedef enum {
     EXPR_RELATION_EQUAL
 } expr_relation_t;
 
+// stack entry type
+typedef enum {
+    EXPR_ENTRY_TERMINAL,
+    EXPR_ENTRY_EXPRESSION
+} expr_entry_type_t;
+
+// stack entry struct
+typedef struct {
+    expr_entry_type_t entry_type;
+    union {
+        struct {
+            token_type_t token_type;
+            expr_terminal_t terminal_type;
+            int line_number;
+        } shifted_terminal;
+
+        struct {
+            AstNode *node;
+        } expression;
+    };
+} expr_stack_entry_t;
+
+// stack
+typedef struct {
+    expr_stack_entry_t *entries;
+    size_t count;
+    size_t capacity;
+} expr_stack_t;
+
 // precedence table for terminals & their relations
 // row: terminal on stack; column: incoming terminal
 static const expr_relation_t RELATION_TABLE[EXPR_TERMINAL_COUNT][EXPR_TERMINAL_COUNT] = {
@@ -239,4 +268,75 @@ static expr_relation_t expr_lookup_relation(expr_terminal_t terminal,
     assert(terminal < EXPR_TERMINAL_COUNT && next_terminal < EXPR_TERMINAL_COUNT &&
            "expr_lookup_relation: terminal is out of range");
     return RELATION_TABLE[terminal][next_terminal];
+}
+
+/**
+ * @brief Creates a new terminal stack entry.
+ * @param token_type Token type.
+ * @param terminal Terminal type.
+ * @param line_number Line number.
+ * @returns New stack entry.
+ */
+[[nodiscard]] static expr_stack_entry_t
+expr_create_terminal(token_type_t token_type, expr_terminal_t terminal, int line_number) {
+}
+
+/**
+ * @brief Creates a new expression stack entry.
+ * @param node AST node of expression.
+ * @returns New stack entry.
+ */
+[[nodiscard]] static expr_stack_entry_t expr_create_expression(AstNode *node) {
+}
+
+/**
+ * @brief Initializes a stack.
+ * @param stack Stack to initialize.
+ */
+static void expr_stack_init(expr_stack_t *stack) {
+}
+
+/**
+ * @brief Frees a stack.
+ * @param stack Stack to free.
+ */
+static void expr_stack_free(expr_stack_t *stack) {
+}
+
+/**
+ * @brief Pushes an entry onto the stack.
+ * @param stack Stack to push to.
+ * @param entry Entry to push.
+ * @note May grow the stack - could cause an allocation failure.
+ *
+ * Pointers from `expr_stack_peek` are invalidated after a push.
+ */
+static void expr_stack_push(expr_stack_t *stack, expr_stack_entry_t entry) {
+}
+
+/**
+ * @brief Pops an entry from the stack.
+ * @param stack Stack to pop from (non-NULL).
+ * @returns The popped stack entry (belongs to the caller afterwards).
+ */
+static expr_stack_entry_t expr_stack_pop(expr_stack_t *stack) {
+}
+
+/**
+ * @brief Shows the entry at `depth` in `stack`.
+ * @param stack Stack to get entry from.
+ * @param depth Depth of entry.
+ * @returns Pointer to entry.
+ * @note `depth` must be lower that `count`, pointer is valid until next pop/push.
+ */
+static expr_stack_entry_t *expr_stack_peek(expr_stack_t *stack, size_t depth) {
+}
+
+/**
+ * @brief Get the terminal at the top of the stack.
+ * @param stack Stack to get terminal from.
+ * @returns Terminal at the stack top.
+ * @note Requires the bottom marker, no two finished expressions sit next to each other.
+ */
+[[nodiscard]] static expr_terminal_t expr_stack_top_terminal(const expr_stack_t *stack) {
 }
