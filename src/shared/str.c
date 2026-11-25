@@ -11,6 +11,8 @@
 #include "str.h"
 
 #include "error.h"
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -88,7 +90,7 @@ void str_reserve(string_t *s, size_t min_cap) {
         return;
     }
 
-    size_t new_cap = max_size(min_cap + 1, max_size(s->cap, STR_INITIAL_CAP));
+    size_t new_cap = max_size(min_cap + 1, max_size(s->cap * 2, STR_INITIAL_CAP));
 
     if (s->cap == 0) {
         s->data    = safe_malloc(new_cap);
@@ -114,4 +116,86 @@ void str_truncate(string_t *s, size_t new_len) {
 
     s->data[new_len] = '\0';
     s->len           = new_len;
+}
+
+// ================================================================================================
+// ===== Appending ================================================================================
+// ================================================================================================
+
+void str_push(string_t *s, char c) {
+    str_reserve(s, s->len + 1);
+
+    s->data[s->len++] = c;
+    s->data[s->len]   = '\0';
+}
+
+char str_pop(string_t *s) {
+    if (s->len == 0) {
+        return '\0';
+    }
+    char c          = s->data[--s->len];
+    s->data[s->len] = '\0';
+
+    return c;
+}
+
+void str_append(string_t *s, const char *src) {
+    str_append_n(s, src, strlen(src));
+}
+
+void str_append_n(string_t *s, const char *src, size_t n) {
+    if (n == 0) {
+        return;
+    }
+
+    // If src points inside of s->data, we remember only the offset from beginning of the buffer, so
+    // that if str_reserve moves the buffer, the pointer dereference doesn't result in
+    // use-after-free.
+    bool self_ref = s->cap > 0 && src >= s->data && src < s->data + s->cap;
+    size_t offset = self_ref ? (size_t)(src - s->data) : 0;
+
+    str_reserve(s, s->len + n);
+
+    if (self_ref) {
+        src = s->data + offset;
+    }
+
+    memcpy(s->data + s->len, src, n);
+
+    s->len += n;
+    s->data[s->len] = '\0';
+}
+
+void str_append_str(string_t *s, const string_t *src) {
+    str_append_n(s, src->data, src->len);
+}
+
+void str_appendf(string_t *s, const char *fmt, ...) {
+    va_list args;
+    va_start(args);
+
+    str_vappendf(s, fmt, args);
+
+    va_end(args);
+}
+
+void str_vappendf(string_t *s, const char *fmt, va_list args) {
+    // Source: https://linux.die.net/man/3/vsnprintf
+
+    // va_list can be iterated only once, hence we have to copy it and call vsnprintf with zero
+    // length to retrieve the size of the later-evaluated format string.
+    va_list vargs;
+    va_copy(vargs, args);
+
+    int n = vsnprintf(nullptr, 0, fmt, vargs);
+
+    va_end(vargs);
+
+    if (n < 0) {
+        error_throw_internal("str_vappendf: formatting failed");
+    }
+
+    str_reserve(s, s->len + (size_t)n);
+    vsnprintf(s->data + s->len, s->cap - s->len, fmt, args);
+    s->len += (size_t)n;
 }
