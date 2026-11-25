@@ -260,7 +260,7 @@ bool str_is_empty(const string_t *s);
 char str_last(const string_t *s);
 
 /**
- * @brief Lexicographic comparison, same semantics as strcmp().
+ * @brief Lexicographic comparison, same semantics as strcmp(), but compares all bytes.
  * @param a The first string in the comparison.
  * @param b The string to lexicographically compare against.
  * @returns An integer whose sign signals the ordering (only the sign is meaningful):
