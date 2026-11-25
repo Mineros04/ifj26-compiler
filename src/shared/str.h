@@ -202,6 +202,8 @@ void str_append_str(string_t *s, const string_t *src);
  * @param fmt The format string.
  * @param ... The values to be formatted according to `fmt`.
  *
+ * @warning Both `fmt` and variadic arguments must not point to s->data.
+ *
  * @throws Error 99 - Allocation failed
  */
 [[gnu::format(printf, 2, 3)]]
