@@ -202,6 +202,8 @@ void str_append_str(string_t *s, const string_t *src);
  * @param fmt The format string.
  * @param ... The values to be formatted according to `fmt`.
  *
+ * @warning Both `fmt` and variadic arguments must not point to s->data.
+ *
  * @throws Error 99 - Allocation failed
  */
 [[gnu::format(printf, 2, 3)]]
@@ -258,7 +260,7 @@ bool str_is_empty(const string_t *s);
 char str_last(const string_t *s);
 
 /**
- * @brief Lexicographic comparison, same semantics as strcmp().
+ * @brief Lexicographic comparison, same semantics as strcmp(), but compares all bytes.
  * @param a The first string in the comparison.
  * @param b The string to lexicographically compare against.
  * @returns An integer whose sign signals the ordering (only the sign is meaningful):
