@@ -1,5 +1,5 @@
 /**
- * @file str.h
+ * @file str.c
  * @authors Adam Jaroš
  * @brief A dynamic string with auto-resizing capability. Backwards-compatible with standard C
  * char[].
