@@ -397,3 +397,25 @@ static expr_stack_entry_t *expr_stack_peek(const expr_stack_t *stack, size_t dep
     assert(below->entry_type == EXPR_ENTRY_TERMINAL);
     return below->shifted_terminal.terminal_type;
 }
+
+/**
+ * @brief Creates a new leaf node.
+ * @param token Literal token (allowed are identifiers, int/double/string literals).
+ * @returns Pointer to new leaf node (cannot be nullptr).
+ * @note Passing other token types is a bug.
+ */
+[[nodiscard]] static AstNode *expr_create_leaf(const token_t *token) {
+    switch (token->type) {
+    case TOK_IDENT:
+        return ast_new_ident(str_cstr(&token->str_val), (int)token->line);
+    case TOK_LIT_INT:
+        return ast_new_lit_int(token->int_val, (int)token->line);
+    case TOK_LIT_DOUBLE:
+        return ast_new_lit_double(token->double_val, (int)token->line);
+    case TOK_LIT_STRING:
+        return ast_new_lit_string(str_cstr(&token->str_val), (int)token->line);
+    default:
+        assert(!"expr_create_leaf: other token type passed");
+        unreachable();
+    }
+}
