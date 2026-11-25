@@ -10,6 +10,10 @@
 #include "parser.h" // lexer_t, token_type_t
 // #include "symtable.h" // symtable_t
 #include <assert.h>
+#include <stdio.h>
+
+#define EXPR_INIT_STACK_CAP 16
+#define ERR_INTERNAL 99
 
 // terminal types
 typedef enum {
@@ -329,14 +333,38 @@ static void expr_stack_free(expr_stack_t *stack) {
  * Pointers from `expr_stack_peek` are invalidated after a push.
  */
 static void expr_stack_push(expr_stack_t *stack, expr_stack_entry_t entry) {
+    if (stack->count == stack->capacity) {
+        if (stack->capacity == 0) {
+            stack->capacity = EXPR_INIT_STACK_CAP;
+        } else {
+            stack->capacity *= 2;
+        }
+
+        expr_stack_entry_t *temp =
+            realloc(stack->entries, stack->capacity * sizeof(expr_stack_entry_t));
+        if (!temp) {
+            fprintf(stderr, "Compiler internal error: memory allocation failed.\n");
+            exit(ERR_INTERNAL);
+        } else {
+            stack->entries = temp;
+        }
+    }
+
+    stack->entries[stack->count] = entry;
+    stack->count++;
 }
 
 /**
  * @brief Pops an entry from the stack.
  * @param stack Stack to pop from (non-NULL).
  * @returns The popped stack entry (belongs to the caller afterwards).
+ * @note The stack's count must be higher than 0.
  */
 static expr_stack_entry_t expr_stack_pop(expr_stack_t *stack) {
+    assert(stack && stack->count > 0 && "expr_stack_pop: invalid stack setup");
+
+    stack->count--;
+    return stack->entries[stack->count];
 }
 
 /**
@@ -344,9 +372,12 @@ static expr_stack_entry_t expr_stack_pop(expr_stack_t *stack) {
  * @param stack Stack to get entry from.
  * @param depth Depth of entry.
  * @returns Pointer to entry.
- * @note `depth` must be lower that `count`, pointer is valid until next pop/push.
+ * @note `depth` must be lower than `count`, pointer is valid until next pop/push.
  */
-static expr_stack_entry_t *expr_stack_peek(expr_stack_t *stack, size_t depth) {
+static expr_stack_entry_t *expr_stack_peek(const expr_stack_t *stack, size_t depth) {
+    assert(depth < stack->count && "expr_stack_peek: condition not met");
+
+    return &stack->entries[stack->count - 1 - depth];
 }
 
 /**
@@ -356,4 +387,13 @@ static expr_stack_entry_t *expr_stack_peek(expr_stack_t *stack, size_t depth) {
  * @note Requires the bottom marker, no two finished expressions sit next to each other.
  */
 [[nodiscard]] static expr_terminal_t expr_stack_top_terminal(const expr_stack_t *stack) {
+    const expr_stack_entry_t *top = expr_stack_peek(stack, 0);
+
+    if (top->entry_type == EXPR_ENTRY_TERMINAL) {
+        return top->shifted_terminal.terminal_type;
+    }
+
+    const expr_stack_entry_t *below = expr_stack_peek(stack, 1);
+    assert(below->entry_type == EXPR_ENTRY_TERMINAL);
+    return below->shifted_terminal.terminal_type;
 }
