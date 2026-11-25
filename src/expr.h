@@ -279,6 +279,11 @@ static expr_relation_t expr_lookup_relation(expr_terminal_t terminal,
  */
 [[nodiscard]] static expr_stack_entry_t
 expr_create_terminal(token_type_t token_type, expr_terminal_t terminal, int line_number) {
+    expr_stack_entry_t new_entry = {.entry_type       = EXPR_ENTRY_TERMINAL,
+                                    .shifted_terminal = {.line_number   = line_number,
+                                                         .terminal_type = terminal,
+                                                         .token_type    = token_type}};
+    return new_entry;
 }
 
 /**
@@ -287,20 +292,32 @@ expr_create_terminal(token_type_t token_type, expr_terminal_t terminal, int line
  * @returns New stack entry.
  */
 [[nodiscard]] static expr_stack_entry_t expr_create_expression(AstNode *node) {
+    expr_stack_entry_t new_entry = {.entry_type = EXPR_ENTRY_EXPRESSION,
+                                    .expression = {.node = node}};
+    return new_entry;
 }
 
 /**
  * @brief Initializes a stack.
- * @param stack Stack to initialize.
+ * @param stack Stack to initialize (owned by the caller).
+ * @note Must be called before other functions, allocates nothing.
  */
 static void expr_stack_init(expr_stack_t *stack) {
+    stack->entries  = nullptr;
+    stack->count    = 0;
+    stack->capacity = 0;
 }
 
 /**
  * @brief Frees a stack.
  * @param stack Stack to free.
+ * @note Frees the stack array, but not the `AstNode`s - on a successful parse, there are none left.
  */
 static void expr_stack_free(expr_stack_t *stack) {
+    free(stack->entries);
+    stack->entries  = nullptr;
+    stack->count    = 0;
+    stack->capacity = 0;
 }
 
 /**
