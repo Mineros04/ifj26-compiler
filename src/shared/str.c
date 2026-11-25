@@ -18,6 +18,10 @@
 
 // ===== Internal =====
 
+static inline size_t min_size(size_t a, size_t b) {
+    return a < b ? a : b;
+}
+
 static inline size_t max_size(size_t a, size_t b) {
     return a > b ? a : b;
 }
@@ -198,4 +202,55 @@ void str_vappendf(string_t *s, const char *fmt, va_list args) {
     str_reserve(s, s->len + (size_t)n);
     vsnprintf(s->data + s->len, s->cap - s->len, fmt, args);
     s->len += (size_t)n;
+}
+
+// ================================================================================================
+// ===== Public string access & comparison ========================================================
+// ================================================================================================
+
+const char *str_cstr(const string_t *s) {
+    return s->data;
+}
+
+size_t str_len(const string_t *s) {
+    return s->len;
+}
+
+bool str_is_empty(const string_t *s) {
+    return s->len == 0;
+}
+
+char str_last(const string_t *s) {
+    return s->len == 0 ? '\0' : s->data[s->len - 1];
+}
+
+int str_cmp(const string_t *a, const string_t *b) {
+    size_t min_len = min_size(a->len, b->len);
+
+    int diff = memcmp(a->data, b->data, min_len);
+    if (diff != 0) {
+        return diff;
+    }
+
+    // a is a proper prefix of b.
+    if (a->len < b->len) {
+        return -1;
+    }
+
+    // b is a proper prefix of a.
+    if (a->len > b->len) {
+        return 1;
+    }
+
+    return 0;
+}
+
+bool str_equals(const string_t *a, const string_t *b) {
+    // We can avoid check for lower buffer length, since the AND operator short-circuits.
+    return a->len == b->len && memcmp(a->data, b->data, a->len) == 0;
+}
+
+bool str_equals_cstr(const string_t *s, const char *cstr) {
+    // Same short circuiting as above.
+    return s->len == strlen(cstr) && memcmp(s->data, cstr, s->len) == 0;
 }
