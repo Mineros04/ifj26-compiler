@@ -14,6 +14,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+// ===== Internal =====
+
+static inline size_t max_size(size_t a, size_t b) {
+    return a > b ? a : b;
+}
+
 // ================================================================================================
 // ===== Lifetime =================================================================================
 // ================================================================================================
@@ -73,3 +79,39 @@ char *str_dup_cstr(const string_t *s) {
     return data;
 }
 
+// ================================================================================================
+// ===== Capacity =================================================================================
+// ================================================================================================
+
+void str_reserve(string_t *s, size_t min_cap) {
+    if (min_cap < s->cap) {
+        return;
+    }
+
+    size_t new_cap = max_size(min_cap + 1, max_size(s->cap, STR_INITIAL_CAP));
+
+    if (s->cap == 0) {
+        s->data    = safe_malloc(new_cap);
+        s->data[0] = '\0';
+    } else {
+        s->data = safe_realloc(s->data, new_cap);
+    }
+    s->cap = new_cap;
+}
+
+void str_clear(string_t *s) {
+    if (s->cap > 0) {
+        s->data[0] = '\0';
+    }
+
+    s->len = 0;
+}
+
+void str_truncate(string_t *s, size_t new_len) {
+    if (new_len >= s->len) {
+        return;
+    }
+
+    s->data[new_len] = '\0';
+    s->len           = new_len;
+}
