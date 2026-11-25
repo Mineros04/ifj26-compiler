@@ -52,6 +52,7 @@ typedef struct {
             token_type_t token_type;
             expr_terminal_t terminal_type;
             int line_number;
+            AstNode *leaf_node; // operand carries its leaf node here (nullptr for others)
         } shifted_terminal;
 
         struct {
@@ -302,6 +303,23 @@ expr_create_terminal(token_type_t token_type, expr_terminal_t terminal, int line
 }
 
 /**
+ * @brief Creates a new operand stack entry.
+ * @param token_type Type of token.
+ * @param leaf_node Leaf node of operand (non-NULL).
+ * @param line_number Line number.
+ * @returns New stack entry.
+ */
+[[nodiscard]] static expr_stack_entry_t
+expr_create_operand(token_type_t token_type, AstNode *leaf_node, int line_number) {
+    assert(leaf_node && "expr_create_operand: leaf node cannot be nullptr");
+    expr_stack_entry_t new_entry = {.entry_type                   = EXPR_ENTRY_TERMINAL,
+                                    .shifted_terminal.leaf_node   = leaf_node,
+                                    .shifted_terminal.line_number = line_number,
+                                    .shifted_terminal.token_type  = token_type};
+    return new_entry;
+}
+
+/**
  * @brief Initializes a stack.
  * @param stack Stack to initialize (owned by the caller).
  * @note Must be called before other functions, allocates nothing.
@@ -315,7 +333,8 @@ static void expr_stack_init(expr_stack_t *stack) {
 /**
  * @brief Frees a stack.
  * @param stack Stack to free.
- * @note Frees the stack array, but not the `AstNode`s - on a successful parse, there are none left.
+ * @note Frees the stack array, but not the `AstNode`s - on a successful parse, there are none
+ * left.
  */
 static void expr_stack_free(expr_stack_t *stack) {
     free(stack->entries);
