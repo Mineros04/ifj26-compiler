@@ -217,6 +217,114 @@ static void scan_annotation(lexer_t *lex, token_t *tok) {
     tok->type = TOK_AT_MAIN;
 }
 
+// Reads the remaining ciphers. Assumes that the last read character was a cipher. Underscores are
+// discarded, ciphers appended to `buf`.
+static void scan_digit_tail(lexer_t *lex, const token_t *tok, string_t *buf) {
+    while (true) {
+        if (isdigit(peek(lex))) {
+            str_push(buf, (char)advance(lex));
+        } else if (peek(lex) == '_') {
+            while (peek(lex) == '_') {
+                advance(lex);
+            }
+            if (!isdigit(peek(lex))) {
+                error_throw_compile(ERR_LEXICAL,
+                                    tok->line,
+                                    tok->column,
+                                    "'_' must be between two digits");
+            }
+        } else {
+            return;
+        }
+    }
+}
+
+static void scan_number(lexer_t *lex, token_t *tok, int c) {
+    string_t buf   = STR_INIT;
+    bool is_double = false;
+
+    if (c == '.') {
+        // DOT state: a cipher most follow.
+        is_double = true;
+
+        str_push(&buf, '.');
+        str_push(&buf, (char)advance(lex));
+
+        scan_digit_tail(lex, tok, &buf);
+    } else {
+        // INT / INT_ZERO state.
+        str_push(&buf, (char)c);
+        scan_digit_tail(lex, tok, &buf);
+
+        if (str_cstr(&buf)[0] == '0' && str_len(&buf) > 1) {
+            error_throw_compile(ERR_LEXICAL,
+                                tok->line,
+                                tok->column,
+                                "non-zero literal must not start with '0'");
+        }
+
+        // VALMEM lookahead.
+        if (peek(lex) == '.' && isdigit(peek_at(lex, 1))) {
+            is_double = true;
+
+            // '.'
+            str_push(&buf, (char)advance(lex));
+            // First digit.
+            str_push(&buf, (char)advance(lex));
+
+            scan_digit_tail(lex, tok, &buf);
+        }
+    }
+
+    // Exponent.
+    if (peek(lex) == 'e' || peek(lex) == 'E') {
+        is_double = true;
+        str_push(&buf, (char)advance(lex));
+
+        if (peek(lex) == '+' || peek(lex) == '-') {
+            str_push(&buf, (char)advance(lex));
+        }
+
+        if (!isdigit(peek(lex))) {
+            error_throw_compile(ERR_LEXICAL,
+                                tok->line,
+                                tok->column,
+                                "exponent requires at least one digit");
+        }
+
+        str_push(&buf, (char)advance(lex));
+        scan_digit_tail(lex, tok, &buf);
+    }
+
+    // Suffix (not appended to buf).
+    if (peek(lex) == 'd' || peek(lex) == 'D') {
+        advance(lex);
+        is_double = true;
+    }
+
+    // The number must not be followed by a character, a cipher, nor an underscore.
+    int next = peek(lex);
+    if (isalnum(next) || next == '_') {
+        error_throw_compile(ERR_LEXICAL, tok->line, tok->column, "invalid number literal");
+    }
+
+    // Parse the number, since buf is valid and doesn't contain underscore suffix.
+    char *end = nullptr;
+
+    if (is_double) {
+        tok->type       = TOK_LIT_DOUBLE;
+        tok->double_val = strtod(str_cstr(&buf), &end);
+    } else {
+        tok->type    = TOK_LIT_INT;
+        tok->int_val = strtoll(str_cstr(&buf), &end, 10);
+    }
+
+    if (*end != '\0' || errno == ERANGE) {
+        error_throw_internal("failed to convert number literal '%s'", str_cstr(&buf));
+    }
+
+    str_free(&buf);
+}
 
 static token_t scan_token(lexer_t *lex) {
     skip_insignificant(lex);
