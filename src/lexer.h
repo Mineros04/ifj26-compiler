@@ -106,7 +106,7 @@ typedef enum {
     /// The `&&` logical operator.
     TOK_OP_AND,
     /// The `||` logical operator.
-    TOP_OP_OR,
+    TOK_OP_OR,
     /// The `(` separator.
     TOK_SEP_LPAREN,
     /// The `)` separator.
