@@ -25,6 +25,8 @@
 
 #define LEX_EOF (-1)
 
+#define INDENT_STACK_INIT_CAP 8
+
 typedef struct {
     const char *name;
     token_type_t tok_val;
@@ -488,15 +490,18 @@ static token_t scan_token(lexer_t *lex) {
 }
 
 // ===== Lexer =====
+    *lex = (lexer_t){
+        .src           = src,
+        .src_line      = 1,
+        .src_column    = 1,
+        .indent_stack  = safe_malloc(INDENT_STACK_INIT_CAP * sizeof(size_t)),
+        .indent_len    = 1,
+        .indent_cap    = INDENT_STACK_INIT_CAP,
+        .at_line_start = true,
+    };
 
-void lexer_init(lexer_t *lex, const string_t *src) {
-    memset(lex, 0, sizeof(lexer_t));
-    lex->src = src;
-
-    lex->src_line   = 1;
-    lex->src_column = 1;
-
-    // TODO: alloc indent stack with base level 0.
+    // Top level.
+    lex->indent_stack[0] = 0;
 
     lex->at_line_start = true;
 }
