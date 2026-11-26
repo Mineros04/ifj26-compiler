@@ -42,6 +42,245 @@ static void gen_stmt(CodeGenContext* ctx, const AstNode* node);
 static void gen_expr(CodeGenContext* ctx, const AstNode* node);
 
 /**
+ * @brief Generate all builtin functions
+ *
+ * @param out Output file
+ */
+static void gen_builtins(FILE* out)
+{
+    // print(value: Any): Unit
+    fputs(
+        "\nLABEL print\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@val\n"
+        "DEFVAR LF@type\n"
+        "POPS LF@val\n"
+        "TYPE LF@type LF@val\n"
+        "JUMPIFEQ $print$unit LF@type string@nil\n"
+        "WRITE LF@val\n"
+        "JUMP $print$end\n"
+        "LABEL $print$unit\n"
+        "WRITE string@()\n"
+        "LABEL $print$end\n"
+        "PUSHS nil@nil\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+
+    // readLine(): String
+    fputs(
+        "\nLABEL readLine\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@res\n"
+        "DEFVAR LF@type\n"
+        "READ LF@res string\n"
+        "TYPE LF@type LF@res\n"
+        "JUMPIFNEQ $readLine$ok LF@type string@nil\n"
+        "MOVE LF@res string@\n"
+        "LABEL $readLine$ok\n"
+        "PUSHS LF@res\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+
+    // readInt(): Int
+    fputs(
+        "\nLABEL readInt\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@res\n"
+        "DEFVAR LF@type\n"
+        "READ LF@res int\n"
+        "TYPE LF@type LF@res\n"
+        "JUMPIFNEQ $readInt$ok LF@type string@nil\n"
+        "MOVE LF@res int@0\n"
+        "LABEL $readInt$ok\n"
+        "PUSHS LF@res\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+
+    // readDouble(): Double
+    fputs(
+        "\nLABEL readDouble\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@res\n"
+        "DEFVAR LF@type\n"
+        "READ LF@res float\n"
+        "TYPE LF@type LF@res\n"
+        "JUMPIFNEQ $readDouble$ok LF@type string@nil\n"
+        "MOVE LF@res float@0x0p+0\n"
+        "LABEL $readDouble$ok\n"
+        "PUSHS LF@res\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+
+    // toStr(value: Any): String
+    fputs(
+        "\nLABEL toStr\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@val\n"
+        "DEFVAR LF@type\n"
+        "DEFVAR LF@res\n"
+        "POPS LF@val\n"
+        "TYPE LF@type LF@val\n"
+        "JUMPIFEQ $toStr$str LF@type string@string\n"
+        "JUMPIFEQ $toStr$int LF@type string@int\n"
+        "JUMPIFEQ $toStr$float LF@type string@float\n"
+        "JUMPIFEQ $toStr$bool LF@type string@bool\n"
+        "MOVE LF@res string@()\n"
+        "JUMP $toStr$end\n"
+        "LABEL $toStr$str\n"
+        "MOVE LF@res LF@val\n"
+        "JUMP $toStr$end\n"
+        "LABEL $toStr$int\n"
+        "INT2STR LF@res LF@val\n"
+        "JUMP $toStr$end\n"
+        "LABEL $toStr$float\n"
+        "FLOAT2STR LF@res LF@val\n"
+        "JUMP $toStr$end\n"
+        "LABEL $toStr$bool\n"
+        "JUMPIFEQ $toStr$true LF@val bool@true\n"
+        "MOVE LF@res string@false\n"
+        "JUMP $toStr$end\n"
+        "LABEL $toStr$true\n"
+        "MOVE LF@res string@true\n"
+        "LABEL $toStr$end\n"
+        "PUSHS LF@res\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+
+    // toInt(value: Double): Int
+    fputs(
+        "\nLABEL toInt\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@val\n"
+        "DEFVAR LF@res\n"
+        "POPS LF@val\n"
+        "FLOAT2INT LF@res LF@val\n"
+        "PUSHS LF@res\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+
+    // strLength(value: String): Int
+    fputs(
+        "\nLABEL strLength\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@val\n"
+        "DEFVAR LF@res\n"
+        "POPS LF@val\n"
+        "STRLEN LF@res LF@val\n"
+        "PUSHS LF@res\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+
+    // subStr(value: String, start: Int, end: Int): String
+    fputs(
+        "\nLABEL subStr\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@end\n"
+        "DEFVAR LF@start\n"
+        "DEFVAR LF@str\n"
+        "DEFVAR LF@len\n"
+        "DEFVAR LF@cond\n"
+        "DEFVAR LF@res\n"
+        "DEFVAR LF@ch\n"
+        "DEFVAR LF@i\n"
+        "POPS LF@end\n"
+        "POPS LF@start\n"
+        "POPS LF@str\n"
+        "STRLEN LF@len LF@str\n"
+        "LT LF@cond LF@start int@0\n"
+        "JUMPIFEQ $subStr$err LF@cond bool@true\n"
+        "LT LF@cond LF@end int@0\n"
+        "JUMPIFEQ $subStr$err LF@cond bool@true\n"
+        "GT LF@cond LF@start LF@end\n"
+        "JUMPIFEQ $subStr$err LF@cond bool@true\n"
+        "LT LF@cond LF@start LF@len\n"
+        "JUMPIFEQ $subStr$err LF@cond bool@false\n"
+        "GT LF@cond LF@end LF@len\n"
+        "JUMPIFEQ $subStr$err LF@cond bool@true\n"
+        "MOVE LF@res string@\n"
+        "MOVE LF@i LF@start\n"
+        "LABEL $subStr$loop\n"
+        "LT LF@cond LF@i LF@end\n"
+        "JUMPIFEQ $subStr$done LF@cond bool@false\n"
+        "GETCHAR LF@ch LF@str LF@i\n"
+        "CONCAT LF@res LF@res LF@ch\n"
+        "ADD LF@i LF@i int@1\n"
+        "JUMP $subStr$loop\n"
+        "LABEL $subStr$err\n"
+        "EXIT int@40\n"
+        "LABEL $subStr$done\n"
+        "PUSHS LF@res\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+
+    // ord(value: String, index: Int): Int
+    fputs(
+        "\nLABEL ord\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@idx\n"
+        "DEFVAR LF@str\n"
+        "DEFVAR LF@len\n"
+        "DEFVAR LF@cond\n"
+        "DEFVAR LF@res\n"
+        "POPS LF@idx\n"
+        "POPS LF@str\n"
+        "STRLEN LF@len LF@str\n"
+        "LT LF@cond LF@idx int@0\n"
+        "JUMPIFEQ $ord$oob LF@cond bool@true\n"
+        "LT LF@cond LF@idx LF@len\n"
+        "JUMPIFEQ $ord$oob LF@cond bool@false\n"
+        "STRI2INT LF@res LF@str LF@idx\n"
+        "PUSHS LF@res\n"
+        "POPFRAME\n"
+        "RETURN\n"
+        "LABEL $ord$oob\n"
+        "PUSHS int@-1\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+
+    // chr(code: Int): String
+    fputs(
+        "\nLABEL chr\n"
+        "CREATEFRAME\n"
+        "PUSHFRAME\n"
+        "DEFVAR LF@code\n"
+        "DEFVAR LF@res\n"
+        "POPS LF@code\n"
+        "INT2CHAR LF@res LF@code\n"
+        "PUSHS LF@res\n"
+        "POPFRAME\n"
+        "RETURN\n",
+        out
+    );
+}
+
+/**
  * @brief Initializes a string buffer.
  *
  * @param sb Pointer to the string buffer.
@@ -282,6 +521,10 @@ static void gen_func_def(CodeGenContext* ctx, const AstNode* astNode)
     if (astNode->func_def.body)
         gen_stmt(ctx, astNode->func_def.body);
 
+    // Push null to be auto discarded instead of the return value
+    if (!astNode->func_def.is_main && astNode->func_def.return_type == TYPE_UNIT)
+        emit_body(ctx, "PUSHS nil@nil\n");
+
     // Emit ending label for a function
     emit_body(ctx, "LABEL $%s$end\n", ctx->current_func);
 
@@ -516,9 +759,9 @@ static void gen_stmt(CodeGenContext* ctx, const AstNode* node)
         {
             callFunc(ctx, node);
 
-            // Discard void type
-            if (node->inferred_type != TYPE_UNIT)
-                emit_body(ctx, "POPS GF@$concat$1\n");
+            // Auto discard last value on stack
+            emit_body(ctx, "POPS GF@$concat$1\n");
+
             break;
         }
 
@@ -745,8 +988,6 @@ static void gen_expr(CodeGenContext* ctx, const AstNode* node)
             // Get the unique ID for the statement
             const size_t id = ++ctx->label_counter;
 
-            // TODO: Check if parser gives expression as then_branch and else_branch
-
             // Generate the body of an if statement
             gen_expr(ctx, node->if_stmt.condition);
             emit_body(ctx, "PUSHS bool@false\n");
@@ -794,6 +1035,9 @@ void codegen_generate(const AstNode* program, FILE* out)
         if (astNode && astNode->type == AST_FUNC_DEF)
             gen_func_def(&ctx, astNode);
     }
+
+    // Generate all builtin functions
+    gen_builtins(ctx.out);
 
     // Free all alocated memory
     free(ctx.vars);
