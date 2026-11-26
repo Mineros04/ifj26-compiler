@@ -25,6 +25,31 @@
 
 #define EOF (-1)
 
+typedef struct {
+    const char *name;
+    token_type_t tok_val;
+} kw_keyval;
+
+static const kw_keyval KW_TABLE[] = {
+    {"def", TOK_KW_DEF},
+    {"do", TOK_KW_DO},
+    {"Double", TOK_KW_DOUBLE},
+    {"else", TOK_KW_ELSE},
+    {"if", TOK_KW_IF},
+    {"import", TOK_KW_IMPORT},
+    {"Int", TOK_KW_INT},
+    {"return", TOK_KW_RETURN},
+    {"String", TOK_KW_STRING},
+    {"then", TOK_KW_THEN},
+    {"Unit", TOK_KW_UNIT},
+    {"val", TOK_KW_VAL},
+    {"var", TOK_KW_VAR},
+    {"while", TOK_KW_WHILE},
+    {"Boolean", TOK_KW_BOOL},
+};
+
+static constexpr size_t KW_TABLE_LEN = sizeof(KW_TABLE) / sizeof(KW_TABLE[0]);
+
 static int peek_at(const lexer_t *lex, size_t offset) {
     size_t peek_idx = lex->src_pos + offset;
     return peek_idx < str_len(lex->src) ? (unsigned char)str_cstr(lex->src)[peek_idx] : EOF;
