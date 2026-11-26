@@ -57,7 +57,7 @@ TBD
 
 - **Team members:** Pavel Bobek, Adam Jaroš, Tomáš Komenda, Ondřej Pippal
 - **Symbol-table variant:** `TRP-izp`
-- **Implemented extensions:** TODO
+- **Implemented extensions:** FUNEXP, BOOLTHEN, VALMEM, PARAMLISTS
 - **Source layout and module descriptions:** TODO
 - **Code formatting style:** as defined in [.clang-format](.clang-format)
 
