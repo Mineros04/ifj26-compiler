@@ -502,8 +502,6 @@ static token_t scan_token(lexer_t *lex) {
 
     // Top level.
     lex->indent_stack[0] = 0;
-
-    lex->at_line_start = true;
 }
 
 void lexer_free(lexer_t *lex) {
