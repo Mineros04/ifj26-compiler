@@ -316,10 +316,44 @@ static AstNode *parse_return_stmt(Parser *p) {
     return ast_new_return(expr, line);
 }
 
+AstNode *parse_func_call(Parser *p) {
+    if (p->current.type != TOK_IDENT) {
+        syntax_error(p, "expected function identifier in call");
+    }
+    int line   = (int)p->current.line;
+    char *name = str_dup_cstr(&p->current.str_val);
+    parser_advance(p);
+
+    parser_expect(p, TOK_SEP_LPAREN, "expected '(' after function name");
+
+    AstNode *call_node = ast_new_func_call(name, line);
+    free(name);
+
+    if (p->current.type != TOK_SEP_RPAREN) {
+        while (true) {
+            AstNode *arg = parse_expression(p);
+            ast_list_append(&call_node->func_call.args, arg);
+            if (!parser_accept(p, TOK_SEP_COMMA)) {
+                break;
+            }
+            if (p->current.type == TOK_SEP_RPAREN && p->current.after_newline) {
+                break;
+            }
+        }
+    }
+
+    parser_expect(p, TOK_SEP_RPAREN, "expected ')' after function call arguments");
+    return call_node;
+}
+
 /**
  * @brief Parses an assignment `id = expr` or standalone function call `id(args...)`.
  */
 static AstNode *parse_ident_led_stmt(Parser *p) {
+    if (parser_peek_next(p) == TOK_SEP_LPAREN) {
+        return parse_func_call(p);
+    }
+
     int line   = (int)p->current.line;
     char *name = str_dup_cstr(&p->current.str_val);
     parser_advance(p);
@@ -329,26 +363,6 @@ static AstNode *parse_ident_led_stmt(Parser *p) {
         AstNode *assign_node = ast_new_assign(name, val_expr, line);
         free(name);
         return assign_node;
-    }
-
-    if (parser_accept(p, TOK_SEP_LPAREN)) {
-        AstNode *call_node = ast_new_func_call(name, line);
-        free(name);
-
-        if (p->current.type != TOK_SEP_RPAREN) {
-            while (true) {
-                AstNode *arg = parse_expression(p);
-                ast_list_append(&call_node->func_call.args, arg);
-                if (!parser_accept(p, TOK_SEP_COMMA)) {
-                    break;
-                }
-                if (p->current.type == TOK_SEP_RPAREN && p->current.after_newline) {
-                    break;
-                }
-            }
-        }
-        parser_expect(p, TOK_SEP_RPAREN, "expected ')' after function call arguments");
-        return call_node;
     }
 
     free(name);
