@@ -452,7 +452,7 @@ static token_t scan_token(lexer_t *lex) {
 // ===== Lexer =====
 
 void lexer_init(lexer_t *lex, const string_t *src) {
-memset(lex, 0, sizeof(lexer_t));
+    memset(lex, 0, sizeof(lexer_t));
     lex->src = src;
 
     lex->src_line   = 1;
