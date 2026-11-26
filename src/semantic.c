@@ -14,8 +14,10 @@ typedef struct
     symbol_t* current_func;     // Pointer to the record of the current function
 } SemanticContext;
 
+
 static void check_stmt(SemanticContext* ctx, AstNode* node);
 static DataType check_expr(SemanticContext* ctx, AstNode* node);
+
 
 /**
  * @brief Searches for a function in the main program branch. Throws error if no function was found.

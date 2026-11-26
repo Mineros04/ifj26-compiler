@@ -4,6 +4,7 @@
  * @brief Header file for the semantic analyzer for IFJ26.
  */
 
+
 #pragma once
 
 #include "symtable.h"
