@@ -490,6 +490,8 @@ static token_t scan_token(lexer_t *lex) {
 }
 
 // ===== Lexer =====
+
+void lexer_init(lexer_t *lex, const string_t *src) {
     *lex = (lexer_t){
         .src           = src,
         .src_line      = 1,
@@ -505,19 +507,138 @@ static token_t scan_token(lexer_t *lex) {
 }
 
 void lexer_free(lexer_t *lex) {
+    if (lex->has_lookahead) {
+        token_free(&lex->lookahead);
+        lex->has_lookahead = false;
+    }
+
+    free(lex->indent_stack);
+    lex->indent_stack = nullptr;
+    lex->indent_len   = 0;
+    lex->indent_cap   = 0;
 }
 
 token_t lexer_next(lexer_t *lex) {
-    return (token_t){};
+    // TODO: Add code layout handling.
+    return scan_token(lex);
 }
 
 const token_t *lexer_peek(lexer_t *lex) {
-    return nullptr;
+    if (!lex->has_lookahead) {
+        lex->lookahead     = lexer_next(lex);
+        lex->has_lookahead = true;
+    }
+
+    return &lex->lookahead;
 }
 
 void token_free(token_t *tok) {
+    if (tok->type == TOK_IDENT || tok->type == TOK_LIT_STRING) {
+        // Safe to call even after reset (as the method states).
+        str_free(&tok->str_val);
+    }
 }
 
 const char *token_type_name(token_type_t type) {
-    return nullptr;
+    switch (type) {
+    // ===== Source code layout =====
+    case TOK_INDENT:
+        return "indentation";
+    case TOK_DEDENT:
+        return "dedentation";
+    case TOK_NEWLINE:
+        return "end of line";
+    case TOK_EOF:
+        return "end of file";
+
+    // ===== Identifiers and literals =====
+    case TOK_IDENT:
+        return "identifier";
+    case TOK_LIT_INT:
+        return "integer literal";
+    case TOK_LIT_DOUBLE:
+        return "double literal";
+    case TOK_LIT_STRING:
+        return "string literal";
+    case TOK_LIT_BOOL:
+        return "boolean literal";
+
+    // ===== Keywords =====
+    case TOK_KW_IMPORT:
+        return "'import'";
+    case TOK_KW_DEF:
+        return "'def'";
+    case TOK_KW_IF:
+        return "'if'";
+    case TOK_KW_THEN:
+        return "'then'";
+    case TOK_KW_ELSE:
+        return "'else'";
+    case TOK_KW_WHILE:
+        return "'while'";
+    case TOK_KW_DO:
+        return "'do'";
+    case TOK_KW_RETURN:
+        return "'return'";
+    case TOK_KW_VAL:
+        return "'val'";
+    case TOK_KW_VAR:
+        return "'var'";
+    case TOK_KW_INT:
+        return "'Int'";
+    case TOK_KW_DOUBLE:
+        return "'Double'";
+    case TOK_KW_STRING:
+        return "'String'";
+    case TOK_KW_BOOL:
+        return "'Boolean'";
+    case TOK_KW_UNIT:
+        return "'Unit'";
+
+    // ===== Operators and separators =====
+    case TOK_OP_PLUS:
+        return "'+'";
+    case TOK_OP_MINUS:
+        return "'-'";
+    case TOK_OP_STAR:
+        return "'*'";
+    case TOK_OP_SLASH:
+        return "'/'";
+    case TOK_OP_EQ:
+        return "'=='";
+    case TOK_OP_NEQ:
+        return "'!='";
+    case TOK_OP_LT:
+        return "'<'";
+    case TOK_OP_LE:
+        return "'<='";
+    case TOK_OP_GT:
+        return "'>'";
+    case TOK_OP_GE:
+        return "'>='";
+    case TOK_OP_ASSIGN:
+        return "'='";
+    case TOK_OP_NOT:
+        return "'!'";
+    case TOK_OP_AND:
+        return "'&&'";
+    case TOK_OP_OR:
+        return "'||'";
+    case TOK_SEP_LPAREN:
+        return "'('";
+    case TOK_SEP_RPAREN:
+        return "')'";
+    case TOK_SEP_COMMA:
+        return "','";
+    case TOK_SEP_COLON:
+        return "':'";
+    case TOK_SEP_SEMI:
+        return "';'";
+    case TOK_SEP_DOT:
+        return "'.'";
+    case TOK_AT_MAIN:
+        return "'@main'";
+    }
+
+    return "unknown token";
 }
