@@ -326,6 +326,41 @@ static void scan_number(lexer_t *lex, token_t *tok, int c) {
     str_free(&buf);
 }
 
+static void scan_ident(lexer_t *lex, token_t *tok) {
+    size_t start = lex->src_pos - 1;
+
+    while (isalnum(peek(lex)) || peek(lex) == '_') {
+        advance(lex);
+    }
+
+    const char *begin = str_cstr(lex->src) + start;
+    size_t len        = lex->src_pos - start;
+
+    // Keywords.
+    for (size_t i = 0; i < KW_TABLE_LEN; i++) {
+        if (strlen(KW_TABLE[i].name) == len && strncmp(KW_TABLE[i].name, begin, len) == 0) {
+            tok->type = KW_TABLE[i].tok_val;
+            return;
+        }
+    }
+
+    // Boolean literals.
+    if (len == 4 && strncmp(begin, "true", 4) == 0) {
+        tok->type     = TOK_LIT_BOOL;
+        tok->bool_val = true;
+        return;
+    }
+    if (len == 5 && strncmp(begin, "false", 5) == 0) {
+        tok->type     = TOK_LIT_BOOL;
+        tok->bool_val = false;
+        return;
+    }
+
+    // Identifier.
+    tok->type = TOK_IDENT;
+    str_init_from_n(&tok->str_val, begin, len);
+}
+
 static token_t scan_token(lexer_t *lex) {
     skip_insignificant(lex);
 
