@@ -41,6 +41,103 @@ static OperatorType map_operator(token_type_t token_type, bool is_unary) {
     }
 }
 
+/**
+ * @brief Reduces an expression.
+ * @param parser Active parser.
+ * @param stack Stack to get expression from.
+ */
+static void reduce_expression(Parser *parser, expr_stack_t *stack) {
+    expr_stack_entry_t *top_entry = expr_stack_peek(stack, 0);
+
+    // lone operand
+    if (top_entry->entry_type == EXPR_ENTRY_TERMINAL &&
+        top_entry->shifted_terminal.terminal_type == EXPR_TERMINAL_OPERAND) {
+        expr_stack_entry_t new_entry = expr_stack_pop(stack);
+
+        expr_stack_push(stack, expr_create_expression(new_entry.shifted_terminal.leaf_node));
+        return;
+    }
+
+    // unary operation: expression, operand
+    if (top_entry->entry_type == EXPR_ENTRY_EXPRESSION && stack->count >= 2) {
+        const expr_stack_entry_t *below = expr_stack_peek(stack, 1);
+        if (below->entry_type == EXPR_ENTRY_TERMINAL &&
+            below->shifted_terminal.terminal_type == EXPR_TERMINAL_PRIORITY_1) {
+
+            expr_stack_entry_t left_operand = expr_stack_pop(stack);
+            expr_stack_entry_t operator     = expr_stack_pop(stack);
+            OperatorType op_type = map_operator(operator.shifted_terminal.token_type, true);
+
+            AstNode *unary_node = ast_new_un_op(op_type,
+                                                left_operand.expression.node,
+                                                operator.shifted_terminal.line_number);
+            expr_stack_push(stack, expr_create_expression(unary_node));
+            return;
+        }
+    }
+
+    // binary operation: operand, expression, operand
+    if (top_entry->entry_type == EXPR_ENTRY_EXPRESSION && stack->count >= 3) {
+        const expr_stack_entry_t *operator_entry     = expr_stack_peek(stack, 1);
+        const expr_stack_entry_t *left_operand_entry = expr_stack_peek(stack, 2);
+
+        if (operator_entry->entry_type == EXPR_ENTRY_TERMINAL &&
+            operator_entry->shifted_terminal.terminal_type >= EXPR_TERMINAL_PRIORITY_2 &&
+            operator_entry->shifted_terminal.terminal_type <= EXPR_TERMINAL_PRIORITY_5 &&
+            left_operand_entry->entry_type == EXPR_ENTRY_EXPRESSION) {
+            expr_stack_entry_t right_operand = expr_stack_pop(stack);
+            expr_stack_entry_t operator      = expr_stack_pop(stack);
+            expr_stack_entry_t left_operand  = expr_stack_pop(stack);
+            OperatorType op_type = map_operator(operator.shifted_terminal.token_type, false);
+
+            AstNode *binary_node = ast_new_bin_op(op_type,
+                                                  left_operand.expression.node,
+                                                  right_operand.expression.node,
+                                                  operator.shifted_terminal.line_number);
+            expr_stack_push(stack, expr_create_expression(binary_node));
+            return;
+        }
+    }
+
+    // parenthesis: '(', expression, ')'
+    if (top_entry->entry_type == EXPR_ENTRY_TERMINAL &&
+        top_entry->shifted_terminal.terminal_type == EXPR_TERMINAL_CLOSE_PAREN &&
+        stack->count >= 3) {
+        const expr_stack_entry_t *inner_expr_entry = expr_stack_peek(stack, 1);
+        const expr_stack_entry_t *open_paren_entry = expr_stack_peek(stack, 2);
+
+        if (inner_expr_entry->entry_type == EXPR_ENTRY_EXPRESSION &&
+            open_paren_entry->entry_type == EXPR_ENTRY_TERMINAL &&
+            open_paren_entry->shifted_terminal.terminal_type == EXPR_TERMINAL_OPEN_PAREN) {
+            expr_stack_pop(stack); // ')'
+            expr_stack_entry_t expr_entry = expr_stack_pop(stack);
+            expr_stack_pop(stack); // '('
+
+            expr_stack_push(stack, expr_entry);
+            return;
+        }
+    }
+
+    // unit literal
+    if (top_entry->entry_type == EXPR_ENTRY_TERMINAL &&
+        top_entry->shifted_terminal.terminal_type == EXPR_TERMINAL_CLOSE_PAREN &&
+        stack->count >= 2) {
+        const expr_stack_entry_t *open_paren_entry = expr_stack_peek(stack, 1);
+
+        if (open_paren_entry->entry_type == EXPR_ENTRY_TERMINAL &&
+            open_paren_entry->shifted_terminal.terminal_type == EXPR_TERMINAL_OPEN_PAREN) {
+            expr_stack_pop(stack);                                 // ')'
+            expr_stack_entry_t open_paren = expr_stack_pop(stack); // '('
+
+            AstNode *unit_node = ast_new_lit_unit(open_paren.shifted_terminal.line_number);
+            expr_stack_push(stack, expr_create_expression(unit_node));
+            return;
+        }
+    }
+
+    syntax_error(parser, "incomplete or invalid expression");
+}
+
 AstNode *parse_expression(Parser *p) {
     // allocate and initialize stack
     expr_stack_t stack;
@@ -83,7 +180,7 @@ AstNode *parse_expression(Parser *p) {
         case EXPR_RELATION_ERROR:
             syntax_error(p, "unexpected token in expression");
         case EXPR_RELATION_REDUCE:
-            /* code */
+            reduce_expression(p, &stack);
             break;
         case EXPR_RELATION_SHIFT: {
             const token_t *current_token = parser_current(p);
@@ -103,7 +200,7 @@ AstNode *parse_expression(Parser *p) {
             } else {
                 new_entry = expr_create_terminal(current_token->type,
                                                  current_terminal,
-                                                 current_token->line);
+                                                 (int)current_token->line);
             }
 
             if (current_terminal == EXPR_TERMINAL_OPEN_PAREN) {
