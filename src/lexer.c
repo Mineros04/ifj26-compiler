@@ -448,6 +448,12 @@ static token_t scan_token(lexer_t *lex) {
         }
         tok.type = TOK_OP_AND;
         break;
+    case '|':
+        if (!match_next(lex, '|')) {
+            error_throw_compile(ERR_LEXICAL, tok.line, tok.column, "unexpected '|'");
+        }
+        tok.type = TOK_OP_OR;
+        break;
     case '"':
         scan_string(lex, &tok);
         break;
