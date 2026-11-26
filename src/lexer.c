@@ -174,14 +174,16 @@ static void scan_string(lexer_t *lex, token_t *tok) {
         advance(lex);
         advance(lex);
 
-        while (!(peek(lex) == '"' && peek_at(lex, 1) == '"' && peek_at(lex, 2) == '"')) {
+        // The closing delimiter is the last three quotes.
+        while (!(peek(lex) == '"' && peek_at(lex, 1) == '"' && peek_at(lex, 2) == '"' &&
+                 peek_at(lex, 3) != '"')) {
             if (peek(lex) == LEX_EOF) {
                 error_throw_compile(ERR_LEXICAL,
-                                    lex->src_line,
-                                    lex->src_column,
+                                    tok->line,
+                                    tok->column,
                                     "unterminated multiline string");
             }
-            str_push(&res, advance(lex));
+            str_push(&res, (char)advance(lex));
         }
 
         advance(lex);
