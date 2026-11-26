@@ -62,6 +62,81 @@ static bool match_next(lexer_t *lex, char expect) {
 
     return true;
 }
+
+// Skip a (possibly nested) multi-line comment. Returns true if it contained a newline.
+static bool skip_ml_comment(lexer_t *lex, size_t line, size_t col) {
+    size_t depth     = 1;
+    bool has_newline = false;
+
+    while (depth > 0) {
+        int c = advance(lex);
+        if (c == EOF) {
+            error_throw_compile(ERR_LEXICAL, line, col, "unterminated comment");
+        } else if (c == '\n') {
+            has_newline = true;
+        } else if (c == '/' && match_next(lex, '*')) {
+            depth++;
+        } else if (c == '*' && match_next(lex, '/')) {
+            depth--;
+        }
+    }
+
+    return has_newline;
+}
+
+// Skip a single-line comment, leaving the terminating '\n' in the input.
+static void skip_sl_comment(lexer_t *lex) {
+    while (peek(lex) != '\n' && peek(lex) != EOF) {
+        advance(lex);
+    }
+}
+
+// TODO: refactor (two functions seem ok, but at least check).
+static bool skip_one_insignificant(lexer_t *lex, bool *expect_eol) {
+    int c = peek(lex);
+
+    if (c == ' ' || c == '\t' || c == '\r') {
+        advance(lex);
+        return true;
+    }
+
+    if (c != '/') {
+        return false;
+    }
+
+    int next = peek_at(lex, 1);
+    if (next == '/') {
+        advance(lex);
+        advance(lex);
+        skip_sl_comment(lex);
+        return true;
+    }
+    if (next == '*') {
+        size_t line = lex->src_line, col = lex->src_column;
+        advance(lex);
+        advance(lex);
+        if (skip_ml_comment(lex, line, col)) {
+            *expect_eol = true;
+        }
+        return true;
+    }
+
+    return false;
+}
+
+static void skip_insignificant(lexer_t *lex) {
+    bool expect_eol = false; // a multiline block comment was skipped
+
+    while (skip_one_insignificant(lex, &expect_eol)) {
+    }
+
+    if (expect_eol && peek(lex) != '\n' && peek(lex) != EOF) {
+        error_throw_compile(ERR_LEXICAL,
+                            lex->src_line,
+                            lex->src_column,
+                            "unexpected token after multiline comment");
+    }
+}
 static token_t scan_token(lexer_t *lex) {
     skip_insignificant(lex);
 
