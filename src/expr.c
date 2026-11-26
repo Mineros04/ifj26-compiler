@@ -188,15 +188,17 @@ AstNode *parse_expression(Parser *p) {
             bool consumed_call = false;
 
             if (current_terminal == EXPR_TERMINAL_OPERAND) {
-                AstNode *node = nullptr;
-                if (current_token->type == TOK_IDENT && parser_peek_next(p) == TOK_SEP_LPAREN) {
+                token_type_t tok_type = current_token->type;
+                int tok_line          = (int)current_token->line;
+                AstNode *node         = nullptr;
+                if (tok_type == TOK_IDENT && parser_peek_next(p) == TOK_SEP_LPAREN) {
                     node          = parse_func_call(p);
                     consumed_call = true;
                 } else {
                     node = expr_create_leaf(current_token);
                 }
-                new_entry =
-                    expr_create_operand(current_token->type, node, (int)current_token->line);
+                new_entry = expr_create_operand(tok_type, node, tok_line);
+
             } else {
                 new_entry = expr_create_terminal(current_token->type,
                                                  current_terminal,

@@ -21,19 +21,15 @@ struct Parser {
 /**
  * @brief Reports a syntax error and terminates the compiler with exit code 2.
  */
-[[noreturn]] static void syntax_error(const Parser *p, const char *msg) {
-    fprintf(stderr,
-            "Syntax error at %zu:%zu (near %s): %s\n",
-            p->current.line,
-            p->current.column,
-            token_type_name(p->current.type),
-            msg);
-    exit(ERR_SYNTAX);
+[[noreturn]] void syntax_error(const Parser *p, const char *msg) {
+    error_throw_compile(ERR_SYNTAX,
+                        p->current.line,
+                        p->current.column,
+                        "near %s: %s",
+                        token_type_name(p->current.type),
+                        msg);
 }
 
-/**
- * @brief Returns a read-only pointer to the current token held by the parser.
- */
 const token_t *parser_current(const Parser *p) {
     return &p->current;
 }
@@ -324,124 +320,109 @@ static AstNode *parse_return_stmt(Parser *p) {
     return ast_new_return(expr, line);
 }
 
+AstNode *parse_func_call(Parser *p) {
+    if (p->current.type != TOK_IDENT) {
+        syntax_error(p, "expected function identifier in call");
+    }
+    int line   = (int)p->current.line;
+    char *name = str_dup_cstr(&p->current.str_val);
+    parser_advance(p);
+
+    parser_expect(p, TOK_SEP_LPAREN, "expected '(' after function name");
+
+    AstNode *call_node = ast_new_func_call(name, line);
+    free(name);
+
+    if (p->current.type != TOK_SEP_RPAREN) {
+        while (true) {
+            AstNode *arg = parse_expression(p);
+            ast_list_append(&call_node->func_call.args, arg);
+            if (!parser_accept(p, TOK_SEP_COMMA)) {
+                break;
+            }
+            if (p->current.type == TOK_SEP_RPAREN && p->current.after_newline) {
+                break;
+            }
+        }
+    }
+
+    parser_expect(p, TOK_SEP_RPAREN, "expected ')' after function call arguments");
+    return call_node;
+}
+
 /**
  * @brief Parses an assignment `id = expr` or standalone function call `id(args...)`.
  */
 static AstNode *parse_ident_led_stmt(Parser *p) {
-    int line = (int)p->current.line;
-    AstNode *parse_func_call(Parser * p) {
-        if (p->current.type != TOK_IDENT) {
-            syntax_error(p, "expected function identifier in call");
+    if (parser_peek_next(p) == TOK_SEP_LPAREN) {
+        return parse_func_call(p);
+    }
+
+    int line   = (int)p->current.line;
+    char *name = str_dup_cstr(&p->current.str_val);
+    parser_advance(p);
+
+    if (parser_accept(p, TOK_OP_ASSIGN)) {
+        AstNode *val_expr    = parse_expression(p);
+        AstNode *assign_node = ast_new_assign(name, val_expr, line);
+        free(name);
+        return assign_node;
+    }
+
+    free(name);
+    syntax_error(p, "expected '=' for assignment or '(' for function call");
+}
+
+/**
+ * @brief Dispatches statement parsing based on the current token.
+ */
+static AstNode *parse_statement(Parser *p) {
+    switch (p->current.type) {
+    case TOK_KW_VAL:
+    case TOK_KW_VAR:
+        return parse_var_decl(p);
+    case TOK_KW_IF:
+        return parse_if_stmt(p);
+    case TOK_KW_WHILE:
+        return parse_while_stmt(p);
+    case TOK_KW_RETURN:
+        return parse_return_stmt(p);
+    case TOK_IDENT:
+        if (parser_peek_next(p) == TOK_OP_ASSIGN || parser_peek_next(p) == TOK_SEP_LPAREN) {
+            return parse_ident_led_stmt(p);
         }
-        int line   = (int)p->current.line;
-        char *name = str_dup_cstr(&p->current.str_val);
-        parser_advance(p);
+        return parse_expression(p);
+    default:
+        return parse_expression(p);
+    }
+}
 
-        if (parser_accept(p, TOK_OP_ASSIGN)) {
-            AstNode *val_expr    = parse_expression(p);
-            AstNode *assign_node = ast_new_assign(name, val_expr, line);
-            free(name);
-            return assign_node;
-        }
+// Entry point
 
-        if (parser_accept(p, TOK_SEP_LPAREN)) {
-            AstNode *call_node = ast_new_func_call(name, line);
-            free(name);
-            parser_expect(p, TOK_SEP_LPAREN, "expected '(' after function name");
+AstNode *parse_program(lexer_t *lex) {
+    Parser p = {
+        .lex     = lex,
+        .current = lexer_next(lex),
+    };
 
-            AstNode *call_node = ast_new_func_call(name, line);
-            free(name);
+    AstNode *program = ast_new_program();
+    parse_prologue(&p);
+    parser_skip_newlines(&p);
 
-            if (p->current.type != TOK_SEP_RPAREN) {
-                while (true) {
-                    AstNode *arg = parse_expression(p);
-                    ast_list_append(&call_node->func_call.args, arg);
-                    if (!parser_accept(p, TOK_SEP_COMMA)) {
-                        break;
-                    }
-                    if (p->current.type == TOK_SEP_RPAREN && p->current.after_newline) {
-                        break;
-                    }
-                }
-            }
-
-            parser_expect(p, TOK_SEP_RPAREN, "expected ')' after function call arguments");
-            return call_node;
-        }
-
-        /**
-         * @brief Parses an assignment `id = expr` or standalone function call `id(args...)`.
-         */
-        static AstNode *parse_ident_led_stmt(Parser * p) {
-            if (parser_peek_next(p) == TOK_SEP_LPAREN) {
-                return parse_func_call(p);
-            }
-
-            int line   = (int)p->current.line;
-            char *name = str_dup_cstr(&p->current.str_val);
-            parser_advance(p);
-
-            if (parser_accept(p, TOK_OP_ASSIGN)) {
-                AstNode *val_expr    = parse_expression(p);
-                AstNode *assign_node = ast_new_assign(name, val_expr, line);
-                free(name);
-                return assign_node;
-            }
-
-            free(name);
-            syntax_error(p, "expected '=' for assignment or '(' for function call");
-        }
-
-        /**
-         * @brief Dispatches statement parsing based on the current token.
-         */
-        static AstNode *parse_statement(Parser * p) {
-            switch (p->current.type) {
-            case TOK_KW_VAL:
-            case TOK_KW_VAR:
-                return parse_var_decl(p);
-            case TOK_KW_IF:
-                return parse_if_stmt(p);
-            case TOK_KW_WHILE:
-                return parse_while_stmt(p);
-            case TOK_KW_RETURN:
-                return parse_return_stmt(p);
-            case TOK_IDENT:
-                if (parser_peek_next(p) == TOK_OP_ASSIGN || parser_peek_next(p) == TOK_SEP_LPAREN) {
-                    return parse_ident_led_stmt(p);
-                }
-                return parse_expression(p);
-            default:
-                return parse_expression(p);
-            }
-        }
-
-        // Entry point
-
-        AstNode *parse_program(lexer_t * lex) {
-            Parser p = {
-                .lex     = lex,
-                .current = lexer_next(lex),
-            };
-
-            AstNode *program = ast_new_program();
-            parse_prologue(&p);
+    while (p.current.type != TOK_EOF) {
+        if (parser_accept(&p, TOK_AT_MAIN)) {
             parser_skip_newlines(&p);
-
-            while (p.current.type != TOK_EOF) {
-                if (parser_accept(&p, TOK_AT_MAIN)) {
-                    parser_skip_newlines(&p);
-                    AstNode *main_func = parse_func_def(&p, true);
-                    ast_list_append(&program->program.functions, main_func);
-                } else if (p.current.type == TOK_KW_DEF) {
-                    AstNode *func = parse_func_def(&p, false);
-                    ast_list_append(&program->program.functions, func);
-                } else {
-                    syntax_error(&p, "expected '@main' or 'def' function declaration at top level");
-                }
-                parser_skip_newlines(&p);
-            }
-
-            token_free(&p.current);
-            return program;
+            AstNode *main_func = parse_func_def(&p, true);
+            ast_list_append(&program->program.functions, main_func);
+        } else if (p.current.type == TOK_KW_DEF) {
+            AstNode *func = parse_func_def(&p, false);
+            ast_list_append(&program->program.functions, func);
+        } else {
+            syntax_error(&p, "expected '@main' or 'def' function declaration at top level");
         }
+        parser_skip_newlines(&p);
+    }
+
+    token_free(&p.current);
+    return program;
+}
