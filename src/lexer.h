@@ -41,6 +41,8 @@ typedef enum {
     /// A string literal, either single-line or multiline (`"""`). Its value is stored in `str_val`,
     /// with all escape sequences already evaluated.
     TOK_LIT_STRING,
+    /// A boolean literal, either `true` or `false`. Its value is stored in `bool_val`.
+    TOK_LIT_BOOL,
 
     // ===== Keywords =====
 
@@ -70,9 +72,10 @@ typedef enum {
     TOK_KW_DOUBLE,
     /// The `String` type keyword.
     TOK_KW_STRING,
+    /// The `Boolean` type keyword.
+    TOK_KW_BOOL,
     /// The `Unit` type keyword.
     TOK_KW_UNIT,
-    // To Be Decided (extensions): TOK_KW_BOOLEAN, TOK_KW_CASE, ...
 
     // ===== Operators and separators =====
 
@@ -98,6 +101,12 @@ typedef enum {
     TOK_OP_GE,
     /// The `=` sign. Expresses both assignment and definition.
     TOK_OP_ASSIGN,
+    /// The `!` logical operator.
+    TOK_OP_NOT,
+    /// The `&&` logical operator.
+    TOK_OP_AND,
+    /// The `||` logical operator.
+    TOP_OP_OR,
     /// The `(` separator.
     TOK_SEP_LPAREN,
     /// The `)` separator.
@@ -139,6 +148,8 @@ typedef struct {
         double double_val;
         /// The name of a `TOK_IDENT` token or the value of a `TOK_LIT_STRING` token.
         string_t str_val;
+        /// The value of a `TOK_LIT_BOOL` token.
+        bool bool_val;
     };
 } token_t;
 
