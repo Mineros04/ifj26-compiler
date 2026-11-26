@@ -52,6 +52,8 @@ typedef struct {
 typedef struct {
     size_t parameter_cnt;                // parameter count
     const param_desc_t *parameters;      // parameter array
+    size_t param_list_cnt;               // count of parameter lists
+    const size_t *param_list_sizes;      // parameter list sizes
     bool is_main;                        // is a main function?
     bool is_builtin;                     // is builtin?
     DataType return_type;                // data type of returned value
@@ -147,6 +149,9 @@ void symtable_pop_scope(symtable_t *table);
  *
  * If not, the inference state is RETURN_UNRESOLVED and return type is TYPE_UNKNOWN, whatever the
  * caller passes.
+ *
+ * param_list_sizes is also copied (caller retains ownership) - param_list_cnt == 0 requires
+ * parameter_cnt == 0.
  */
 [[nodiscard]] symtable_status_t
 symtable_insert_func(symtable_t *table, const char *name, func_desc_t description, int line_num);
