@@ -221,7 +221,7 @@ static AstNode *parse_func_def(Parser *p, bool is_main) {
     char *func_name = str_dup_cstr(&p->current.str_val);
     parser_advance(p);
 
-    AstNode *func_node = ast_new_func_def(func_name, is_main, TYPE_UNIT, nullptr, line);
+    AstNode *func_node = ast_new_func_def(func_name, is_main, TYPE_UNKNOWN, nullptr, line);
     free(func_name);
 
     parse_param_list(p, func_node);
