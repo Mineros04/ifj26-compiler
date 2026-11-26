@@ -19,6 +19,8 @@ typedef enum {
     EXPR_TERMINAL_PRIORITY_3,
     EXPR_TERMINAL_PRIORITY_4,
     EXPR_TERMINAL_PRIORITY_5,
+    EXPR_TERMINAL_PRIORITY_6,
+    EXPR_TERMINAL_PRIORITY_7,
     EXPR_TERMINAL_OPERAND,
     EXPR_TERMINAL_END_EXPRESSION,
     EXPR_TERMINAL_OPEN_PAREN,
@@ -73,6 +75,8 @@ static const expr_relation_t RELATION_TABLE[EXPR_TERMINAL_COUNT][EXPR_TERMINAL_C
                                       [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
@@ -82,6 +86,8 @@ static const expr_relation_t RELATION_TABLE[EXPR_TERMINAL_COUNT][EXPR_TERMINAL_C
                                       [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
@@ -91,6 +97,8 @@ static const expr_relation_t RELATION_TABLE[EXPR_TERMINAL_COUNT][EXPR_TERMINAL_C
                                       [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
@@ -100,6 +108,8 @@ static const expr_relation_t RELATION_TABLE[EXPR_TERMINAL_COUNT][EXPR_TERMINAL_C
                                       [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_ERROR,
                                       [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
@@ -109,15 +119,41 @@ static const expr_relation_t RELATION_TABLE[EXPR_TERMINAL_COUNT][EXPR_TERMINAL_C
                                       [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_ERROR,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
-    [EXPR_TERMINAL_OPERAND]        = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_REDUCE,
+    [EXPR_TERMINAL_PRIORITY_6]     = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
+    [EXPR_TERMINAL_PRIORITY_7]     = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_REDUCE},
+    [EXPR_TERMINAL_OPERAND]        = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_ERROR,
                                       [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_ERROR,
                                       [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_ERROR,
                                       [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
@@ -127,15 +163,19 @@ static const expr_relation_t RELATION_TABLE[EXPR_TERMINAL_COUNT][EXPR_TERMINAL_C
                                       [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_EQUAL,
                                       [EXPR_TERMINAL_END_EXPRESSION] = EXPR_RELATION_ERROR},
-    [EXPR_TERMINAL_CLOSE_PAREN]    = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_REDUCE,
+    [EXPR_TERMINAL_CLOSE_PAREN]    = {[EXPR_TERMINAL_PRIORITY_1]     = EXPR_RELATION_ERROR,
                                       [EXPR_TERMINAL_PRIORITY_2]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_REDUCE,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_REDUCE,
                                       [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_ERROR,
                                       [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_ERROR,
                                       [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_REDUCE,
@@ -145,6 +185,8 @@ static const expr_relation_t RELATION_TABLE[EXPR_TERMINAL_COUNT][EXPR_TERMINAL_C
                                       [EXPR_TERMINAL_PRIORITY_3]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_PRIORITY_4]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_PRIORITY_5]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_6]     = EXPR_RELATION_SHIFT,
+                                      [EXPR_TERMINAL_PRIORITY_7]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_OPERAND]        = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_OPEN_PAREN]     = EXPR_RELATION_SHIFT,
                                       [EXPR_TERMINAL_CLOSE_PAREN]    = EXPR_RELATION_ERROR,
@@ -237,6 +279,16 @@ static expr_terminal_t expr_classify_token(token_type_t token) {
         return EXPR_TERMINAL_END_EXPRESSION;
     case TOK_AT_MAIN:
         return EXPR_TERMINAL_END_EXPRESSION;
+    case TOK_LIT_BOOL:
+        return EXPR_TERMINAL_OPERAND;
+    case TOK_KW_BOOL:
+        return EXPR_TERMINAL_END_EXPRESSION;
+    case TOK_OP_AND:
+        return EXPR_TERMINAL_PRIORITY_6;
+    case TOK_OP_OR:
+        return EXPR_TERMINAL_PRIORITY_7;
+    case TOK_OP_NOT:
+        return EXPR_TERMINAL_PRIORITY_1;
     }
 
     assert(!"expr_classify_token: unreachable statement reached");
@@ -426,6 +478,8 @@ static expr_stack_entry_t *expr_stack_peek(const expr_stack_t *stack, size_t dep
         return ast_new_lit_double(token->double_val, (int)token->line);
     case TOK_LIT_STRING:
         return ast_new_lit_string(str_cstr(&token->str_val), (int)token->line);
+    case TOK_LIT_BOOL:
+        return ast_new_lit_bool(token->bool_val, (int)token->line);
     default:
         assert(!"expr_create_leaf: other token type passed");
         unreachable();
@@ -460,6 +514,12 @@ static OperatorType map_operator(token_type_t token_type, bool is_unary) {
         return OP_GT;
     case TOK_OP_GE:
         return OP_GE;
+    case TOK_OP_AND:
+        return OP_AND;
+    case TOK_OP_OR:
+        return OP_OR;
+    case TOK_OP_NOT:
+        return OP_NOT;
     default:
         assert(!"map_operator: unexpected operator token");
         unreachable();
@@ -508,7 +568,7 @@ static void reduce_expression(Parser *parser, expr_stack_t *stack) {
 
         if (operator_entry->entry_type == EXPR_ENTRY_TERMINAL &&
             operator_entry->shifted_terminal.terminal_type >= EXPR_TERMINAL_PRIORITY_2 &&
-            operator_entry->shifted_terminal.terminal_type <= EXPR_TERMINAL_PRIORITY_5 &&
+            operator_entry->shifted_terminal.terminal_type <= EXPR_TERMINAL_PRIORITY_7 &&
             left_operand_entry->entry_type == EXPR_ENTRY_EXPRESSION) {
             expr_stack_entry_t right_operand = expr_stack_pop(stack);
             expr_stack_entry_t operator      = expr_stack_pop(stack);
