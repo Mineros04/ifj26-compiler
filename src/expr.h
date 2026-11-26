@@ -8,12 +8,10 @@
 
 #include "ast.h"    // AstNode
 #include "parser.h" // lexer_t, token_type_t
-// #include "symtable.h" // symtable_t
+#include "shared/error.h"
 #include <assert.h>
-#include <stdio.h>
 
 #define EXPR_INIT_STACK_CAP 16
-#define ERR_INTERNAL 99
 
 // terminal types
 typedef enum {
@@ -312,10 +310,11 @@ expr_create_terminal(token_type_t token_type, expr_terminal_t terminal, int line
 [[nodiscard]] static expr_stack_entry_t
 expr_create_operand(token_type_t token_type, AstNode *leaf_node, int line_number) {
     assert(leaf_node && "expr_create_operand: leaf node cannot be nullptr");
-    expr_stack_entry_t new_entry = {.entry_type                   = EXPR_ENTRY_TERMINAL,
-                                    .shifted_terminal.leaf_node   = leaf_node,
-                                    .shifted_terminal.line_number = line_number,
-                                    .shifted_terminal.token_type  = token_type};
+    expr_stack_entry_t new_entry = {.entry_type                     = EXPR_ENTRY_TERMINAL,
+                                    .shifted_terminal.terminal_type = EXPR_TERMINAL_OPERAND,
+                                    .shifted_terminal.leaf_node     = leaf_node,
+                                    .shifted_terminal.line_number   = line_number,
+                                    .shifted_terminal.token_type    = token_type};
     return new_entry;
 }
 
@@ -362,8 +361,7 @@ static void expr_stack_push(expr_stack_t *stack, expr_stack_entry_t entry) {
         expr_stack_entry_t *temp =
             realloc(stack->entries, stack->capacity * sizeof(expr_stack_entry_t));
         if (!temp) {
-            fprintf(stderr, "Compiler internal error: memory allocation failed.\n");
-            exit(ERR_INTERNAL);
+            error_throw_internal("Compiler internal error: memory allocation failed.\n");
         } else {
             stack->entries = temp;
         }
