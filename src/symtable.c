@@ -40,7 +40,7 @@ typedef struct {
     DataType return_type;
 } builtin_desc_t;
 
-// builtin functions, TODO: add builtins
+// builtin functions
 static const builtin_desc_t BUILTINS[] = {
     {.name          = "print",
      .parameter_cnt = 1,
@@ -72,7 +72,8 @@ static const builtin_desc_t BUILTINS[] = {
     {.name          = "chr",
      .parameter_cnt = 1,
      .parameters    = {{.data_type = TYPE_INT}},
-     .return_type   = TYPE_STRING}};
+     .return_type   = TYPE_STRING},
+    {.name = "readBoolean", .parameter_cnt = 0, .return_type = TYPE_BOOL}};
 
 /**
  * @brief Frees a symbol.
@@ -88,6 +89,7 @@ static void free_symbol(void *symbol) {
     if (to_free->sym_type == SYMBOL_FUNCTION) {
         // legitimate cast here, const protects the callers, array was created by own malloc
         free((void *)to_free->data.function.parameters);
+        free((void *)to_free->data.function.param_list_sizes);
     }
 
     free(to_free->identifier);
@@ -259,6 +261,9 @@ symtable_insert_func(symtable_t *table, const char *name, func_desc_t descriptio
     assert((!description.parameter_cnt || description.parameters) &&
            "symtable_insert_func: parameter count is non-zero and parameter array is nullptr");
 
+    assert(description.param_list_cnt || !description.parameter_cnt);
+    assert(!description.param_list_cnt || description.param_list_sizes);
+
     symbol_t *new_func = calloc(1, sizeof(symbol_t));
     if (!new_func) {
         return SYMTABLE_OUT_OF_MEM;
@@ -270,10 +275,11 @@ symtable_insert_func(symtable_t *table, const char *name, func_desc_t descriptio
         return SYMTABLE_OUT_OF_MEM;
     }
 
-    new_func->data.function            = description;
-    new_func->data.function.parameters = nullptr; // copy this, assign nullptr for now
-    new_func->line_number              = line_num;
-    new_func->sym_type                 = SYMBOL_FUNCTION;
+    new_func->data.function                  = description;
+    new_func->data.function.parameters       = nullptr; // copy this, assign nullptr for now
+    new_func->data.function.param_list_sizes = nullptr;
+    new_func->line_number                    = line_num;
+    new_func->sym_type                       = SYMBOL_FUNCTION;
 
     if (new_func->data.function.parameter_cnt != 0) {
         param_desc_t *temp = calloc(new_func->data.function.parameter_cnt, sizeof(param_desc_t));
@@ -285,8 +291,20 @@ symtable_insert_func(symtable_t *table, const char *name, func_desc_t descriptio
         memcpy(temp,
                description.parameters,
                new_func->data.function.parameter_cnt * sizeof(param_desc_t));
-
         new_func->data.function.parameters = temp;
+    }
+
+    if (new_func->data.function.param_list_cnt != 0) {
+        size_t *temp = calloc(new_func->data.function.param_list_cnt, sizeof(size_t));
+        if (!temp) {
+            free_symbol(new_func);
+            return SYMTABLE_OUT_OF_MEM;
+        }
+
+        memcpy(temp,
+               description.param_list_sizes,
+               new_func->data.function.param_list_cnt * sizeof(size_t));
+        new_func->data.function.param_list_sizes = temp;
     }
 
     if (new_func->data.function.return_explicit) {
@@ -318,12 +336,14 @@ symtable_status_t symtable_register_builtins(symtable_t *table) {
     assert(table);
 
     for (size_t i = 0; i < (sizeof(BUILTINS) / sizeof(BUILTINS[0])); i++) {
-        func_desc_t function_desc = {.is_builtin      = true,
-                                     .is_main         = false,
-                                     .parameter_cnt   = BUILTINS[i].parameter_cnt,
-                                     .parameters      = BUILTINS[i].parameters,
-                                     .return_explicit = true,
-                                     .return_type     = BUILTINS[i].return_type};
+        func_desc_t function_desc = {.is_builtin       = true,
+                                     .is_main          = false,
+                                     .parameter_cnt    = BUILTINS[i].parameter_cnt,
+                                     .parameters       = BUILTINS[i].parameters,
+                                     .return_explicit  = true,
+                                     .return_type      = BUILTINS[i].return_type,
+                                     .param_list_cnt   = 1,
+                                     .param_list_sizes = &BUILTINS[i].parameter_cnt};
 
         symtable_status_t in_status =
             symtable_insert_func(table, BUILTINS[i].name, function_desc, 0);
