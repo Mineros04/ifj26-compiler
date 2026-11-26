@@ -74,3 +74,18 @@ void parser_advance(Parser *p);
  * @throws Error 2 - Syntax error
  */
 [[noreturn]] void syntax_error(const Parser *p, const char *msg);
+
+/**
+ * @brief Parses a function call `id(arg1, arg2, ...)`.
+ *
+ * Expects `p->current` to be `TOK_IDENT` (the function name) followed by `TOK_SEP_LPAREN`.
+ * Consumes the entire call including the closing `')'`, leaving `p->current` at the next token.
+ *
+ * @param p Pointer to the active parser state.
+ * @returns Pointer to the created AST_FUNC_CALL node.
+ *
+ * @throws Error 1 - Lexical error
+ * @throws Error 2 - Syntax error
+ * @throws Error 99 - Allocation failed
+ */
+[[nodiscard]] AstNode *parse_func_call(Parser *p);
