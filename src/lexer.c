@@ -153,6 +153,15 @@ static token_t scan_token(lexer_t *lex) {
 // ===== Lexer =====
 
 void lexer_init(lexer_t *lex, const string_t *src) {
+memset(lex, 0, sizeof(lexer_t));
+    lex->src = src;
+
+    lex->src_line   = 1;
+    lex->src_column = 1;
+
+    // TODO: alloc indent stack with base level 0.
+
+    lex->at_line_start = true;
 }
 
 void lexer_free(lexer_t *lex) {
