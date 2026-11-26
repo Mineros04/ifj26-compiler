@@ -54,14 +54,16 @@ AstNode *parse_expression(Parser *p) {
         case EXPR_RELATION_REDUCE:
             /* code */
             break;
-        case EXPR_RELATION_SHIFT:
+        case EXPR_RELATION_SHIFT: {
             const token_t *current_token = parser_current(p);
             expr_stack_entry_t new_entry;
+            bool consumed_call = false;
 
             if (current_terminal == EXPR_TERMINAL_OPERAND) {
-                AstNode *node;
+                AstNode *node = nullptr;
                 if (current_token->type == TOK_IDENT && parser_peek_next(p) == TOK_SEP_LPAREN) {
-                    // call routine
+                    node          = parse_func_call(p);
+                    consumed_call = true;
                 } else {
                     node = expr_create_leaf(current_token);
                 }
@@ -78,9 +80,12 @@ AstNode *parse_expression(Parser *p) {
             }
 
             expr_stack_push(&stack, new_entry);
-            parser_advance(p);
+            if (!consumed_call) {
+                parser_advance(p);
+            }
             prev_terminal = current_terminal;
             break;
+        }
         }
     }
 }
