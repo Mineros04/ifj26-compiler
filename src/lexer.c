@@ -137,6 +137,75 @@ static void skip_insignificant(lexer_t *lex) {
                             "unexpected token after multiline comment");
     }
 }
+
+static void scan_string(lexer_t *lex, token_t *tok) {
+    // Initial '"' has been processed.
+    string_t res = STR_INIT;
+    int c;
+
+    if (peek(lex) == '"' && peek_at(lex, 1) == '"') {
+        // Multi-line string handling.
+
+        advance(lex);
+        advance(lex);
+
+        while (!(peek(lex) == '"' && peek_at(lex, 1) == '"' && peek_at(lex, 2) == '"')) {
+            if (peek(lex) == EOF) {
+                error_throw_compile(ERR_LEXICAL,
+                                    lex->src_line,
+                                    lex->src_column,
+                                    "unterminated multiline string");
+            }
+            str_push(&res, advance(lex));
+        }
+
+        advance(lex);
+        advance(lex);
+        advance(lex);
+    } else {
+        // Single-line string handling.
+
+        while ((c = advance(lex)) != '"') {
+            if (c == EOF || c == '\n') {
+                error_throw_compile(ERR_LEXICAL,
+                                    lex->src_line,
+                                    lex->src_column,
+                                    "unterminated string literal");
+            }
+            if (c == '\\') {
+                switch (c = advance(lex)) {
+                case '\\':
+                    c = '\\';
+                    break;
+                case '"':
+                    c = '"';
+                    break;
+                case 'n':
+                    c = '\n';
+                    break;
+                case 'r':
+                    c = '\r';
+                    break;
+                case 't':
+                    c = '\t';
+                    break;
+                default:
+                    error_throw_compile(ERR_LEXICAL,
+                                        lex->src_line,
+                                        lex->src_column,
+                                        "unexpected escape sequence: '\\%c'",
+                                        c);
+                }
+            }
+
+            str_push(&res, c);
+        }
+    }
+
+    tok->type    = TOK_LIT_STRING;
+    tok->str_val = res;
+}
+
 static token_t scan_token(lexer_t *lex) {
     skip_insignificant(lex);
 
