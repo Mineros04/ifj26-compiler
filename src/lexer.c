@@ -23,7 +23,7 @@
 
 // ===== Internal =====
 
-#define EOF (-1)
+#define LEX_EOF (-1)
 
 typedef struct {
     const char *name;
@@ -52,7 +52,7 @@ static constexpr size_t KW_TABLE_LEN = sizeof(KW_TABLE) / sizeof(KW_TABLE[0]);
 
 static int peek_at(const lexer_t *lex, size_t offset) {
     size_t peek_idx = lex->src_pos + offset;
-    return peek_idx < str_len(lex->src) ? (unsigned char)str_cstr(lex->src)[peek_idx] : EOF;
+    return peek_idx < str_len(lex->src) ? (unsigned char)str_cstr(lex->src)[peek_idx] : LEX_EOF;
 }
 
 static inline int peek(const lexer_t *lex) {
@@ -62,8 +62,8 @@ static inline int peek(const lexer_t *lex) {
 static int advance(lexer_t *lex) {
     int c = peek(lex);
 
-    if (c == EOF) {
-        return EOF;
+    if (c == LEX_EOF) {
+        return LEX_EOF;
     }
 
     lex->src_pos++;
@@ -95,7 +95,7 @@ static bool skip_ml_comment(lexer_t *lex, size_t line, size_t col) {
 
     while (depth > 0) {
         int c = advance(lex);
-        if (c == EOF) {
+        if (c == LEX_EOF) {
             error_throw_compile(ERR_LEXICAL, line, col, "unterminated comment");
         } else if (c == '\n') {
             has_newline = true;
@@ -111,7 +111,7 @@ static bool skip_ml_comment(lexer_t *lex, size_t line, size_t col) {
 
 // Skip a single-line comment, leaving the terminating '\n' in the input.
 static void skip_sl_comment(lexer_t *lex) {
-    while (peek(lex) != '\n' && peek(lex) != EOF) {
+    while (peek(lex) != '\n' && peek(lex) != LEX_EOF) {
         advance(lex);
     }
 }
@@ -155,7 +155,7 @@ static void skip_insignificant(lexer_t *lex) {
     while (skip_one_insignificant(lex, &expect_eol)) {
     }
 
-    if (expect_eol && peek(lex) != '\n' && peek(lex) != EOF) {
+    if (expect_eol && peek(lex) != '\n' && peek(lex) != LEX_EOF) {
         error_throw_compile(ERR_LEXICAL,
                             lex->src_line,
                             lex->src_column,
@@ -175,7 +175,7 @@ static void scan_string(lexer_t *lex, token_t *tok) {
         advance(lex);
 
         while (!(peek(lex) == '"' && peek_at(lex, 1) == '"' && peek_at(lex, 2) == '"')) {
-            if (peek(lex) == EOF) {
+            if (peek(lex) == LEX_EOF) {
                 error_throw_compile(ERR_LEXICAL,
                                     lex->src_line,
                                     lex->src_column,
@@ -191,7 +191,7 @@ static void scan_string(lexer_t *lex, token_t *tok) {
         // Single-line string handling.
 
         while ((c = advance(lex)) != '"') {
-            if (c == EOF || c == '\n') {
+            if (c == LEX_EOF || c == '\n') {
                 error_throw_compile(ERR_LEXICAL,
                                     lex->src_line,
                                     lex->src_column,
@@ -401,7 +401,7 @@ static token_t scan_token(lexer_t *lex) {
     int c = advance(lex);
 
     switch (c) {
-    case EOF:
+    case LEX_EOF:
         tok.type = TOK_EOF;
         break;
     case '\n':
