@@ -5,6 +5,10 @@
  */
 
 #include "expr.h"
+#include "shared/error.h"
+#include <assert.h>
+#include <stddef.h>
+#include <stdlib.h>
 
 #define EXPR_INIT_STACK_CAP 16
 
