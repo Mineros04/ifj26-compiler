@@ -335,6 +335,7 @@ static void scan_number(lexer_t *lex, token_t *tok, int c) {
 
     // Parse the number, since buf is valid and doesn't contain underscore suffix.
     char *end = nullptr;
+    errno     = 0;
 
     if (is_double) {
         tok->type       = TOK_LIT_DOUBLE;
@@ -345,7 +346,11 @@ static void scan_number(lexer_t *lex, token_t *tok, int c) {
     }
 
     if (*end != '\0' || errno == ERANGE) {
-        error_throw_internal("failed to convert number literal '%s'", str_cstr(&buf));
+        error_throw_compile(ERR_LEXICAL,
+                            lex->src_line,
+                            lex->src_column - buf.len,
+                            "failed to convert number literal '%s'",
+                            str_cstr(&buf));
     }
 
     str_free(&buf);
