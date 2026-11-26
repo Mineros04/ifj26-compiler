@@ -2,7 +2,7 @@
  * @file lexer-fsm.dot
  * @authors Adam Jaroš
  * @brief Graphviz source of the lexer's finite state machine diagram.
- *        Render with: dot -Tpng docs/lexer-fsm.dot -o docs/lexer-fsm.png
+ *        Render with: dot -Tpng docs/lexer-fsm.dot -o docs/figures/lexer-fsm.png
  *
  * AI USE DISCLOSURE (assignment, section 4):
  * The graph was written by the author. An AI tool then checked it, fixed
