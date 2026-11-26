@@ -358,12 +358,8 @@ static void expr_stack_push(expr_stack_t *stack, expr_stack_entry_t entry) {
         }
 
         expr_stack_entry_t *temp =
-            realloc(stack->entries, stack->capacity * sizeof(expr_stack_entry_t));
-        if (!temp) {
-            error_throw_internal("Compiler internal error: memory allocation failed.\n");
-        } else {
-            stack->entries = temp;
-        }
+            safe_realloc(stack->entries, stack->capacity * sizeof(expr_stack_entry_t));
+        stack->entries = temp;
     }
 
     stack->entries[stack->count] = entry;
