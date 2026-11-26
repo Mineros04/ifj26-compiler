@@ -206,6 +206,18 @@ static void scan_string(lexer_t *lex, token_t *tok) {
     tok->str_val = res;
 }
 
+static void scan_annotation(lexer_t *lex, token_t *tok) {
+    int c;
+
+    if (advance(lex) != 'm' || advance(lex) != 'a' || advance(lex) != 'i' || advance(lex) != 'n' ||
+        (c = peek(lex)) == '_' || isalnum(c)) {
+        error_throw_compile(ERR_LEXICAL, tok->line, tok->column, "invalid annotation");
+    }
+
+    tok->type = TOK_AT_MAIN;
+}
+
+
 static token_t scan_token(lexer_t *lex) {
     skip_insignificant(lex);
 
