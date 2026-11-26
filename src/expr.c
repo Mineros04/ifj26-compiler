@@ -7,8 +7,39 @@
 #include "expr.h"
 #include "parser.h"
 
-// static void reduce_expression(Parser *parser, expr_stack_t *stack) {
-// }
+/**
+ * @brief Maps a token to an operator.
+ * @param token_type Type of token.
+ * @param is_unary Is the operation unary?
+ * @returns Type of operator.
+ */
+static OperatorType map_operator(token_type_t token_type, bool is_unary) {
+    switch (token_type) {
+    case TOK_OP_PLUS:
+        return is_unary ? OP_POS : OP_ADD;
+    case TOK_OP_MINUS:
+        return is_unary ? OP_NEG : OP_SUB;
+    case TOK_OP_STAR:
+        return OP_MUL;
+    case TOK_OP_SLASH:
+        return OP_DIV;
+    case TOK_OP_EQ:
+        return OP_EQ;
+    case TOK_OP_NEQ:
+        return OP_NEQ;
+    case TOK_OP_LT:
+        return OP_LT;
+    case TOK_OP_LE:
+        return OP_LE;
+    case TOK_OP_GT:
+        return OP_GT;
+    case TOK_OP_GE:
+        return OP_GE;
+    default:
+        assert(!"map_operator: unexpected operator token");
+        unreachable();
+    }
+}
 
 AstNode *parse_expression(Parser *p) {
     // allocate and initialize stack
