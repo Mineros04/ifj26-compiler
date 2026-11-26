@@ -84,7 +84,7 @@ static void parser_expect(Parser *p, token_type_t type, const char *err_msg) {
 }
 
 /**
- * @brief Parses a data type keyword (`Int`, `Double`, `String`, `Unit`).
+ * @brief Parses a data type keyword (`Int`, `Double`, `String`, `Boolean`, `Unit`).
  */
 static DataType parse_data_type(Parser *p) {
     switch (p->current.type) {
@@ -97,11 +97,14 @@ static DataType parse_data_type(Parser *p) {
     case TOK_KW_STRING:
         parser_advance(p);
         return TYPE_STRING;
+    case TOK_KW_BOOL:
+        parser_advance(p);
+        return TYPE_BOOL;
     case TOK_KW_UNIT:
         parser_advance(p);
         return TYPE_UNIT;
     default:
-        syntax_error(p, "expected a valid data type (Int, Double, String, Unit)");
+        syntax_error(p, "expected a valid data type (Int, Double, String, Boolean, Unit)");
     }
 }
 
