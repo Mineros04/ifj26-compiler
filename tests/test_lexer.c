@@ -1451,7 +1451,7 @@ UTEST(lexer, single_operators_and_separators) {
         {"+", TOK_OP_PLUS},     {"-", TOK_OP_MINUS},  {"*", TOK_OP_STAR},    {"/", TOK_OP_SLASH},
         {"==", TOK_OP_EQ},      {"!=", TOK_OP_NEQ},   {"<", TOK_OP_LT},      {"<=", TOK_OP_LE},
         {">", TOK_OP_GT},       {">=", TOK_OP_GE},    {"=", TOK_OP_ASSIGN},  {"!", TOK_OP_NOT},
-        {"&&", TOK_OP_AND},     {"||", TOP_OP_OR},    {"(", TOK_SEP_LPAREN}, {")", TOK_SEP_RPAREN},
+        {"&&", TOK_OP_AND},     {"||", TOK_OP_OR},    {"(", TOK_SEP_LPAREN}, {")", TOK_SEP_RPAREN},
         {",", TOK_SEP_COMMA},   {":", TOK_SEP_COLON}, {";", TOK_SEP_SEMI},   {".", TOK_SEP_DOT},
         {"@main", TOK_AT_MAIN},
     };
@@ -1482,7 +1482,7 @@ UTEST(lexer, all_operators_in_sequence) {
                   TOK_OP_ASSIGN,
                   TOK_OP_NOT,
                   TOK_OP_AND,
-                  TOP_OP_OR,
+                  TOK_OP_OR,
                   TOK_SEP_LPAREN,
                   TOK_SEP_RPAREN,
                   TOK_SEP_COMMA,
@@ -1514,8 +1514,8 @@ UTEST(lexer, maximal_munch_of_operators) {
     ASSERT_TOKENS("=!", TOK_OP_ASSIGN, TOK_OP_NOT, TOK_NEWLINE, TOK_EOF);
     ASSERT_TOKENS("!!", TOK_OP_NOT, TOK_OP_NOT, TOK_NEWLINE, TOK_EOF);
     ASSERT_TOKENS("&&&&", TOK_OP_AND, TOK_OP_AND, TOK_NEWLINE, TOK_EOF);
-    ASSERT_TOKENS("||||", TOP_OP_OR, TOP_OP_OR, TOK_NEWLINE, TOK_EOF);
-    ASSERT_TOKENS("&&||", TOK_OP_AND, TOP_OP_OR, TOK_NEWLINE, TOK_EOF);
+    ASSERT_TOKENS("||||", TOK_OP_OR, TOK_OP_OR, TOK_NEWLINE, TOK_EOF);
+    ASSERT_TOKENS("&&||", TOK_OP_AND, TOK_OP_OR, TOK_NEWLINE, TOK_EOF);
     ASSERT_TOKENS("--", TOK_OP_MINUS, TOK_OP_MINUS, TOK_NEWLINE, TOK_EOF);
     ASSERT_TOKENS("+-", TOK_OP_PLUS, TOK_OP_MINUS, TOK_NEWLINE, TOK_EOF);
     ASSERT_TOKENS("->", TOK_OP_MINUS, TOK_OP_GT, TOK_NEWLINE, TOK_EOF);
@@ -1552,7 +1552,7 @@ UTEST(lexer, boolean_expression) {
                   TOK_OP_AND,
                   TOK_LIT_BOOL,
                   TOK_SEP_RPAREN,
-                  TOP_OP_OR,
+                  TOK_OP_OR,
                   TOK_LIT_BOOL,
                   TOK_NEWLINE,
                   TOK_EOF);
@@ -1560,7 +1560,7 @@ UTEST(lexer, boolean_expression) {
                   TOK_IDENT,
                   TOK_OP_AND,
                   TOK_IDENT,
-                  TOP_OP_OR,
+                  TOK_OP_OR,
                   TOK_OP_NOT,
                   TOK_IDENT,
                   TOK_NEWLINE,
@@ -2498,7 +2498,7 @@ UTEST(lexer, ext_boolthen_variable) {
                   TOK_OP_AND,
                   TOK_LIT_BOOL,
                   TOK_SEP_RPAREN,
-                  TOP_OP_OR,
+                  TOK_OP_OR,
                   TOK_LIT_BOOL,
                   TOK_NEWLINE,
                   TOK_EOF);
