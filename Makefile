@@ -13,8 +13,8 @@ TEST_MODULES = $(filter-out src/main.c,$(BUILD_SOURCES))
 TEST_HEADERS = $(call find_files,tests,h) $(BUILD_HEADERS)
 TEST_TARGET = dist/test_runner
 
-.SILENT: all build run clean build_test test
-.PHONY: all build run clean build_test test memcheck
+.SILENT: all build run clean build_test test docs
+.PHONY: all build run clean build_test test memcheck docs
 
 all: build run
 
@@ -37,3 +37,8 @@ test: build_test
 
 memcheck:
 	valgrind --leak-check=full $(BUILD_TARGET)
+
+docs:
+	dot -Tpng docs/lexer-fsm.dot -o docs/figures/lexer-fsm.png
+	dot -Tpng docs/architecture.dot -o docs/figures/architecture.png
+	typst compile docs/dokumentace.typ
