@@ -464,7 +464,7 @@ static expr_stack_entry_t *expr_stack_peek(const expr_stack_t *stack, size_t dep
 
 /**
  * @brief Creates a new leaf node.
- * @param token Literal token (allowed are identifiers, int/double/string literals).
+ * @param token Literal token (allowed are identifiers, int/double/string/bool literals).
  * @returns Pointer to new leaf node (cannot be nullptr).
  * @note Passing other token types is a bug.
  */
