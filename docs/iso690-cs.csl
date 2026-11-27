@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0" default-locale="cs-CZ">
+  <info>
+    <title>ČSN ISO 690 (číselné odkazy, online zdroje)</title>
+    <id>iso690-cs-online</id>
+    <updated>2026-11-27T00:00:00+00:00</updated>
+  </info>
+
+  <macro name="author">
+    <names variable="author">
+      <name name-as-sort-order="all" sort-separator=", " delimiter="; " delimiter-precedes-last="always">
+        <name-part name="family" text-case="uppercase"/>
+      </name>
+    </names>
+  </macro>
+
+  <macro name="accessed">
+    <date variable="accessed">
+      <date-part name="year"/>
+      <date-part name="month" form="numeric-leading-zeros" prefix="-"/>
+      <date-part name="day" form="numeric-leading-zeros" prefix="-"/>
+    </date>
+  </macro>
+
+  <citation>
+    <layout prefix="[" suffix="]" delimiter=", ">
+      <text variable="citation-number"/>
+    </layout>
+  </citation>
+
+  <bibliography second-field-align="flush" entry-spacing="1">
+    <layout>
+      <text variable="citation-number" prefix="[" suffix="]"/>
+      <group delimiter=" ">
+        <group delimiter=". " suffix=".">
+          <text macro="author"/>
+          <group delimiter=" ">
+            <text variable="title" font-style="italic"/>
+            <text value="[online]"/>
+          </group>
+        </group>
+        <group delimiter=" " suffix=".">
+          <text variable="publisher"/>
+          <group delimiter=" " prefix="[" suffix="]">
+            <text value="cit."/>
+            <text macro="accessed"/>
+          </group>
+        </group>
+        <group delimiter=" ">
+          <text value="Dostupné z:"/>
+          <text variable="URL"/>
+        </group>
+      </group>
+    </layout>
+  </bibliography>
+</style>
