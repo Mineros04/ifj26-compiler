@@ -677,6 +677,16 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
                                 fn->parameter_cnt,
                                 node->func_call.args.count);
 
+        // Check parameter list count before indexing arg_list_sizes
+        if (node->func_call.arg_list_cnt != fn->param_list_cnt)
+            error_throw_compile(ERR_SEM_INVALID_ARG,
+                                (size_t)node->line,
+                                0,
+                                "Function '%s' expects %zu parameter list(s), got %zu.",
+                                node->func_call.func_name,
+                                fn->param_list_cnt,
+                                node->func_call.arg_list_cnt);
+
         // Check argument count inside each parameter list
         for (size_t i = 0; i < fn->param_list_cnt; i++)
         {
