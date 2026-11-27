@@ -797,10 +797,11 @@ void semantic_analyzer(AstNode *program) {
     // Loop through all functions and register them
     for (size_t i = 0; i < program->program.functions.count; i++) {
         const AstNode *node = program->program.functions.items[i];
-        if (node == nullptr && node->type == AST_FUNC_DEF)
+        if (node == nullptr || node->type != AST_FUNC_DEF)
             error_throw_internal("Program node is not a function node.");
 
-        param_desc_t *params = safe_malloc(sizeof(param_desc_t) * node->func_def.params.count);
+        const size_t param_cnt = node->func_def.params.count;
+        param_desc_t *params = param_cnt > 0 ? safe_malloc(sizeof(param_desc_t) * param_cnt) : nullptr;
 
         // Loop through all parameters and register them
         for (size_t j = 0; j < node->func_def.params.count; j++) {
@@ -809,15 +810,18 @@ void semantic_analyzer(AstNode *program) {
         }
 
         // Create a function descriptor
-        const func_desc_t func_desc = {node->func_def.params.count,
-                                       params,
-                                       0,
-                                       nullptr,
-                                       node->func_def.is_main,
-                                       false,
-                                       node->func_def.return_type,
-                                       node->func_def.return_type != TYPE_UNKNOWN,
-                                       RETURN_UNRESOLVED};
+        const bool is_explicit = node->func_def.return_type != TYPE_UNKNOWN;
+        const func_desc_t func_desc = {
+            .parameter_cnt    = param_cnt,
+            .parameters       = params,
+            .param_list_cnt   = 0,
+            .param_list_sizes = nullptr,
+            .is_main          = node->func_def.is_main,
+            .is_builtin       = false,
+            .return_type      = node->func_def.return_type,
+            .return_explicit  = is_explicit,
+            .inference_state  = is_explicit ? RETURN_FINALIZED : RETURN_UNRESOLVED,
+        };
         symtable_status =
             symtable_insert_func(ctx.funcs, node->func_def.name, func_desc, node->line);
 
