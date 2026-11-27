@@ -106,7 +106,7 @@ static bool table_expand(hashtable_t *table) {
     }
     free(table->items);
 
-    table->items = new_array;
+    table->items    = new_array;
     table->capacity = new_capacity;
     return true;
 }
@@ -132,7 +132,7 @@ hashtable_t *hashtable_create(size_t init_capacity) {
     }
 
     new_table->capacity = init_capacity; // set initial capacity
-    new_table->count = 0;                // set item count
+    new_table->count    = 0;             // set item count
 
     return new_table;
 }

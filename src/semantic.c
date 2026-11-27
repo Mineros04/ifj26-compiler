@@ -23,13 +23,11 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node);
  *
 - @return Boolean if the node only body.
  */
-static bool is_stmt_only(const AstNode *node)
-{
+static bool is_stmt_only(const AstNode *node) {
     if (node == nullptr)
         return true;
 
-    switch (node->type)
-    {
+    switch (node->type) {
     case AST_VAR_DECL:
     case AST_ASSIGN:
     case AST_WHILE:
@@ -246,35 +244,27 @@ static void analyze_func(SemanticContext *ctx, AstNode *node) {
         declare_var(ctx, param->param.name, param->param.data_type, false, param->line);
     }
 
-    if (node->func_def.body != nullptr)
-    {
-        if (check_return(node->func_def.body))
-        {
+    if (node->func_def.body != nullptr) {
+        if (check_return(node->func_def.body)) {
             // Every execution path terminates with an explicit return statement
             check_stmt(ctx, node->func_def.body);
-        }
-        else
-        {
+        } else {
             // Execution can reach the end, last expression is the implicit return value
             const DataType body_type = check_expr(ctx, node->func_def.body);
 
-            if (fn->return_explicit)
-            {
-                if (fn->return_type == TYPE_UNIT)
-                {
+            if (fn->return_explicit) {
+                if (fn->return_type == TYPE_UNIT) {
                     // Explicit Unit function discards any body expression result
-                }
-                else if (fn->return_type == TYPE_DOUBLE && body_type == TYPE_INT)
+                } else if (fn->return_type == TYPE_DOUBLE && body_type == TYPE_INT)
                     node->func_def.body->convert_to_double = true;
                 else if (body_type != fn->return_type)
-                    error_throw_compile(ERR_SEM_TYPE_MISMATCH,
-                                        (size_t)node->line,
-                                        0,
-                                        "Function '%s' body type does not match declared return type.",
-                                        node->func_def.name);
-            }
-            else
-            {
+                    error_throw_compile(
+                        ERR_SEM_TYPE_MISMATCH,
+                        (size_t)node->line,
+                        0,
+                        "Function '%s' body type does not match declared return type.",
+                        node->func_def.name);
+            } else {
                 if (fn->return_type == TYPE_UNKNOWN)
                     fn->return_type = body_type;
                 else if (fn->return_type == TYPE_DOUBLE && body_type == TYPE_INT)
@@ -480,11 +470,12 @@ static void check_stmt(SemanticContext *ctx, AstNode *node) {
 
         // Functions using return must declare an explicit return type
         if (!fn->return_explicit) {
-            error_throw_compile(ERR_SEM_TYPE_MISMATCH,
-                                (size_t)node->line,
-                                0,
-                                "Function '%s' uses 'return' and must have an explicit return type.",
-                                ctx->current_func->identifier);
+            error_throw_compile(
+                ERR_SEM_TYPE_MISMATCH,
+                (size_t)node->line,
+                0,
+                "Function '%s' uses 'return' and must have an explicit return type.",
+                ctx->current_func->identifier);
         }
 
         // Explicit Unit function discards any return expression result
@@ -744,10 +735,11 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
                                 node->func_call.arg_list_cnt);
 
         // Check argument count inside each parameter list
-        for (size_t i = 0; i < fn->param_list_cnt; i++)
-        {
+        for (size_t i = 0; i < fn->param_list_cnt; i++) {
             if (node->func_call.arg_list_sizes[i] != fn->param_list_sizes[i])
-                error_throw_compile(ERR_SEM_INVALID_ARG, (size_t)node->line, 0,
+                error_throw_compile(ERR_SEM_INVALID_ARG,
+                                    (size_t)node->line,
+                                    0,
                                     "Parameter list %zu of '%s' expects %zu argument(s), got %zu.",
                                     i + 1,
                                     node->func_call.func_name,
@@ -757,7 +749,9 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
 
         // Defensive total argument count check
         if (node->func_call.args.count != fn->parameter_cnt)
-            error_throw_compile(ERR_SEM_INVALID_ARG, (size_t)node->line, 0,
+            error_throw_compile(ERR_SEM_INVALID_ARG,
+                                (size_t)node->line,
+                                0,
                                 "Function '%s' expects %zu argument(s), got %zu.",
                                 node->func_call.func_name,
                                 fn->parameter_cnt,
@@ -835,32 +829,22 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
         break;
     }
 
-    case AST_MEMBER_ACCESS:
-    {
+    case AST_MEMBER_ACCESS: {
         if (node->member_access.object == nullptr || node->member_access.member_name == nullptr)
             error_throw_internal("Invalid AST_MEMBER_ACCESS node.");
 
         const DataType obj_type = check_expr(ctx, node->member_access.object);
         const char *member      = node->member_access.member_name;
 
-        if (strcmp(member, "toString") == 0)
-        {
+        if (strcmp(member, "toString") == 0) {
             result = TYPE_STRING;
-        }
-        else if (obj_type == TYPE_STRING && strcmp(member, "length") == 0)
-        {
+        } else if (obj_type == TYPE_STRING && strcmp(member, "length") == 0) {
             result = TYPE_INT;
-        }
-        else if (obj_type == TYPE_DOUBLE && strcmp(member, "toInt") == 0)
-        {
+        } else if (obj_type == TYPE_DOUBLE && strcmp(member, "toInt") == 0) {
             result = TYPE_INT;
-        }
-        else if (obj_type == TYPE_DOUBLE && strcmp(member, "floor") == 0)
-        {
+        } else if (obj_type == TYPE_DOUBLE && strcmp(member, "floor") == 0) {
             result = TYPE_DOUBLE;
-        }
-        else
-        {
+        } else {
             // Verify required exit code for unknown member in section 5.4
             error_throw_compile(ERR_SEM_UNDEF,
                                 (size_t)node->line,
@@ -875,25 +859,18 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
         // Create a new scope and check all the statements in the block
         push_scope(ctx);
         const size_t count = node->block.statements.count;
-        if (count == 0)
-        {
+        if (count == 0) {
             result = TYPE_UNIT;
-        }
-        else
-        {
-            for (size_t i = 0; i < count - 1; i++)
-            {
+        } else {
+            for (size_t i = 0; i < count - 1; i++) {
                 check_stmt(ctx, node->block.statements.items[i]);
             }
 
             AstNode *last = node->block.statements.items[count - 1];
-            if (is_stmt_only(last))
-            {
+            if (is_stmt_only(last)) {
                 check_stmt(ctx, last);
                 result = TYPE_UNIT;
-            }
-            else
-            {
+            } else {
                 result = check_expr(ctx, last);
             }
         }
@@ -948,7 +925,8 @@ void semantic_analyzer(AstNode *program) {
         }
 
         const size_t param_cnt = node->func_def.params.count;
-        param_desc_t *params = param_cnt > 0 ? safe_malloc(sizeof(param_desc_t) * param_cnt) : nullptr;
+        param_desc_t *params =
+            param_cnt > 0 ? safe_malloc(sizeof(param_desc_t) * param_cnt) : nullptr;
 
         // Loop through all parameters and register them
         for (size_t j = 0; j < node->func_def.params.count; j++) {
@@ -957,7 +935,7 @@ void semantic_analyzer(AstNode *program) {
         }
 
         // Create a function descriptor
-        const bool is_explicit = node->func_def.return_type != TYPE_UNKNOWN;
+        const bool is_explicit      = node->func_def.return_type != TYPE_UNKNOWN;
         const func_desc_t func_desc = {
             .parameter_cnt    = param_cnt,
             .parameters       = params,

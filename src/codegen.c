@@ -1020,29 +1020,19 @@ static void gen_expr(CodeGenContext *ctx, const AstNode *node) {
         break;
     }
 
-    case AST_MEMBER_ACCESS:
-    {
+    case AST_MEMBER_ACCESS: {
         gen_expr(ctx, node->member_access.object);
 
         const char *member = node->member_access.member_name;
-        if (strcmp(member, "toString") == 0)
-        {
+        if (strcmp(member, "toString") == 0) {
             emit_body(ctx, "CALL toStr\n");
-        }
-        else if (strcmp(member, "length") == 0)
-        {
+        } else if (strcmp(member, "length") == 0) {
             emit_body(ctx, "CALL strLength\n");
-        }
-        else if (strcmp(member, "toInt") == 0)
-        {
+        } else if (strcmp(member, "toInt") == 0) {
             emit_body(ctx, "CALL toInt\n");
-        }
-        else if (strcmp(member, "floor") == 0)
-        {
+        } else if (strcmp(member, "floor") == 0) {
             emit_body(ctx, "CALL floor\n");
-        }
-        else
-        {
+        } else {
             error_throw_internal("Unsupported member '%s' in codegen.", member);
         }
         break;
