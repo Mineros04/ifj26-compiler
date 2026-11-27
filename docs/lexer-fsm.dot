@@ -1,0 +1,188 @@
+/**
+ * @file lexer-fsm.dot
+ * @authors Adam Jaroš
+ * @brief Graphviz source of the lexer's finite state machine diagram.
+ *        Render with: dot -Tpng docs/lexer-fsm.dot -o docs/figures/lexer-fsm.png
+ *
+ * AI USE DISCLOSURE (assignment, section 4):
+ * The graph was written by the author. An AI tool then checked it, fixed
+ * it and reorganized it; the changes were reviewed by the author.
+ *   Tool:    Claude Opus 5.5 (Anthropic), via Claude Code
+ *   Prompts:
+ *     1. "I tried rendering the graph and some letters, including '_', clip
+ *         through the edges and states. How can I fix that?"
+ *     2. "The extensions FUNEXP, BOOLTHEN, VALMEM and PARAMLISTS should
+ *         already be implemented. Check whether some of the transitions and
+ *         states could be split into their own sections according to these
+ *         extensions. If so, rearrange them."
+ *   Included files: "docs/lexer-fsm.dot"
+ *   Changes made by the tool:
+ *     - rendering (prompt 1): DejaVu Sans font for nodes and edges (the
+ *       default Times font clipped "_" in edge labels in PNG output); the
+ *       START whitespace self-loop moved to the west port and the entry arrow
+ *       to the north-west port so they no longer overlap the other START edges
+ *     - structure (prompt 2): BOOLTHEN states (NOT as a final state, AMP,
+ *       PIPE, AND, OR) and their transitions, and the VALMEM lookahead on
+ *       the integer-to-double transition, moved into their own sections;
+ *       the graph itself is unchanged
+ *
+ * Extensions:
+ *   BOOLTHEN    - adds '!' (as a standalone token), '&&' and '||'.
+ *   VALMEM      - adds the '[next = D]' lookahead after an integer, so that
+ *                 "1.toString" is lexed as INT DOT ID.
+ *   FUNEXP, PARAMLISTS - purely syntactic; no change to the lexer.
+ *   Boolean literals (true, false) are keywords lexed through the ID state.
+ */
+
+digraph lexer {
+    rankdir="LR";
+
+    // Default Times font clips "_" when rendered.
+    node [fontname="DejaVu Sans"];
+    edge [fontname="DejaVu Sans"];
+
+    // ===== FSM entry point =====
+    init [shape=point];
+
+    // ===== Standard states (base language) =====
+    node [shape=circle];
+    START;
+    UNDERSCORE;
+    INT_SEP;
+    DBL_DOT, DBL_FRAC_SEP, DBL_EXP, DBL_EXP_SIGN, DBL_EXP_SEP;
+    STR, STR_OPEN, STR_ESC;
+    ML_STR, ML_STR_Q1, ML_STR_Q2;
+    CMT_LINE, CMT_BLOCK, CMT_BLOCK_STAR, CMT_BLOCK_SLASH;
+    AT;
+
+    // ===== Final states (base language) =====
+    node [shape=doublecircle];
+    EOL, EOF;
+    ID;
+    INT, INT_ZERO;
+    DOT, DBL_FRAC, DBL_EXP_NUM, DBL_SUFFIX;
+    STR_EMPTY, STR_END;
+    ML_STR_END;
+    SLASH;
+    PLUS, MINUS, STAR, ASSIGN, EQ, NEQ, LT, LE, GT, GE, LPAREN, RPAREN, COMMA, COLON, SEMI, ANNOT;
+
+    // ===== BOOLTHEN states =====
+    node [shape=circle];
+    AMP, PIPE;
+    // NOT is final only with BOOLTHEN; in the base language '!' must be
+    // followed by '='.
+    node [shape=doublecircle];
+    NOT, AND, OR;
+
+    // ==== State transitions =====
+    
+    init -> START:nw;
+
+    // Whitespace.
+    START:w -> START:w [label="' ', \\r, \\t"];
+    START -> EOL [label="LF"];
+    START -> EOF [label="EOF"];
+
+    // Identifier & keywords.
+    START -> ID [label="L"];
+    START -> UNDERSCORE [label="_"];
+    UNDERSCORE -> ID [label="L, D, _"];
+    ID -> ID [label="L, D, _"];
+
+    // Integers.
+    START -> INT_ZERO [label="0"];
+    START -> INT [label="D1"];
+    INT -> INT [label="D"];
+    INT -> INT_SEP [label="_"];
+    INT_SEP -> INT_SEP [label="_"];
+    INT_SEP -> INT [label="D"];
+
+    // Floating-point numbers.
+    // INT, INT_ZERO -> DBL_DOT is drawn in the VALMEM section.
+    START -> DOT [label="."];
+    DOT -> DBL_FRAC [label="D"];
+    DBL_DOT -> DBL_FRAC [label="D"];
+    DBL_FRAC -> DBL_FRAC [label="D"];
+    DBL_FRAC -> DBL_FRAC_SEP [label="_"];
+    DBL_FRAC_SEP -> DBL_FRAC_SEP [label="_"];
+    DBL_FRAC_SEP -> DBL_FRAC [label="D"];
+    INT, INT_ZERO, DBL_FRAC -> DBL_EXP [label="e, E"];
+    DBL_EXP -> DBL_EXP_SIGN [label="+, -"];
+    DBL_EXP, DBL_EXP_SIGN -> DBL_EXP_NUM [label="D"];
+    DBL_EXP_NUM -> DBL_EXP_NUM [label="D"];
+    DBL_EXP_NUM -> DBL_EXP_SEP [label="_"];
+    DBL_EXP_SEP -> DBL_EXP_SEP [label="_"];
+    DBL_EXP_SEP -> DBL_EXP_NUM [label="D"];
+    INT, INT_ZERO, DBL_FRAC, DBL_EXP_NUM -> DBL_SUFFIX [label="d, D"];
+
+    // Single-line strings.
+    START -> STR_OPEN [label="\""];
+    STR_OPEN -> STR_EMPTY [label="\""];
+    STR_OPEN -> STR_ESC [label="\\"];
+    STR_OPEN -> STR [label="!{\", \\, LF, EOF}"];
+    STR -> STR [label="!{\", \\, LF, EOF}"];
+    STR -> STR_ESC [label="\\"];
+    STR_ESC -> STR [label="\\, \", n, r, t"];
+    STR -> STR_END [label="\""];
+
+    // Multi-line strings.
+    STR_EMPTY -> ML_STR [label="\""];
+    ML_STR -> ML_STR [label="!{\", EOF}"];
+    ML_STR -> ML_STR_Q1 [label="\""];
+    ML_STR_Q1 -> ML_STR_Q2 [label="\""];
+    ML_STR_Q1, ML_STR_Q2 -> ML_STR [label="!{\", EOF}"];
+    ML_STR_Q2 -> ML_STR_END [label="\""];
+    ML_STR_END -> ML_STR_END [label="\""];
+
+    // Comments.
+    START -> SLASH [label="/"];
+    SLASH -> CMT_LINE [label="/"];
+    CMT_LINE -> CMT_LINE [label="!{LF, EOF}"];
+    CMT_LINE -> EOL [label="LF"];
+    CMT_LINE -> EOF [label="EOF"];
+    SLASH -> CMT_BLOCK [label="*"];
+    CMT_BLOCK -> CMT_BLOCK_STAR [label="*"];
+    CMT_BLOCK -> CMT_BLOCK_SLASH [label="/"];
+    CMT_BLOCK -> CMT_BLOCK [label="!{*, /, EOF}"];
+    CMT_BLOCK_STAR -> CMT_BLOCK_STAR [label="*"];
+    CMT_BLOCK_STAR -> CMT_BLOCK [label="/ [depth > 1]"];
+    CMT_BLOCK_STAR -> START [label="/ [depth = 1]"];
+    CMT_BLOCK_STAR -> CMT_BLOCK [label="!{*, /, EOF}"];
+    CMT_BLOCK_SLASH -> CMT_BLOCK [label="*"];
+    CMT_BLOCK_SLASH -> CMT_BLOCK_SLASH [label="/"];
+    CMT_BLOCK_SLASH -> CMT_BLOCK [label="!{*, /, EOF}"];
+
+    // Operators, separators, annotation (base language).
+    START -> PLUS [label="+"];
+    START -> MINUS [label="-"];
+    START -> STAR [label="*"];
+    START -> ASSIGN [label="="];
+    ASSIGN -> EQ [label="="];
+    START -> NOT [label="!"];
+    NOT -> NEQ [label="="];
+    START -> LT [label="<"];
+    LT -> LE [label="="];
+    START -> GT [label=">"];
+    GT -> GE [label="="];
+    START -> LPAREN [label="("];
+    START -> RPAREN [label=")"];
+    START -> COMMA [label=","];
+    START -> COLON [label=":"];
+    START -> SEMI [label=";"];
+    // START -> DOT is drawn in the floating-point section.
+    START -> AT [label="@"];
+    AT -> ANNOT [label="L"];
+    ANNOT -> ANNOT [label="L, D, _"];
+
+    // ===== BOOLTHEN transitions =====
+    // START -> NOT is drawn in the operators section (shared with '!=').
+    START -> AMP [label="&"];
+    AMP -> AND [label="&"];
+    START -> PIPE [label="|"];
+    PIPE -> OR [label="|"];
+
+    // ===== VALMEM transitions =====
+    // The lookahead keeps "1.toString" from being lexed as a double; without
+    // VALMEM, a plain '.' transition would suffice.
+    INT, INT_ZERO -> DBL_DOT [label=". [next = D]"];
+}

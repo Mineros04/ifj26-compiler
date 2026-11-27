@@ -1,5 +1,5 @@
 /**
-* @file codegen.h
+ * @file codegen.h
  * @authors Pavel Bobek
  * @brief Header file for the code generator for IFJ26.
  */
@@ -8,10 +8,10 @@
 
 #include "ast.h"
 #include "shared/error.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
 
 /**
  * @brief Entry point of the IFJ26 code generator.

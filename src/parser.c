@@ -5,10 +5,8 @@
  */
 
 #include "parser.h"
-#include <stdio.h>
+#include "shared/error.h"
 #include <stdlib.h>
-
-#define ERR_SYNTAX 2
 
 /**
  * @brief Internal state of the recursive descent parser.
@@ -24,9 +22,12 @@ struct Parser {
  * @brief Reports a syntax error and terminates the compiler with exit code 2.
  */
 [[noreturn]] static void syntax_error(const Parser *p, const char *msg) {
-    fprintf(stderr, "Syntax error at %zu:%zu (near %s): %s\n", p->current.line, p->current.column,
-            token_type_name(p->current.type), msg);
-    exit(ERR_SYNTAX);
+    error_throw_compile(ERR_SYNTAX,
+                        p->current.line,
+                        p->current.column,
+                        "near %s: %s",
+                        token_type_name(p->current.type),
+                        msg);
 }
 
 /**
@@ -87,20 +88,20 @@ static void parser_expect(Parser *p, token_type_t type, const char *err_msg) {
  */
 static DataType parse_data_type(Parser *p) {
     switch (p->current.type) {
-        case TOK_KW_INT:
-            parser_advance(p);
-            return TYPE_INT;
-        case TOK_KW_DOUBLE:
-            parser_advance(p);
-            return TYPE_DOUBLE;
-        case TOK_KW_STRING:
-            parser_advance(p);
-            return TYPE_STRING;
-        case TOK_KW_UNIT:
-            parser_advance(p);
-            return TYPE_UNIT;
-        default:
-            syntax_error(p, "expected a valid data type (Int, Double, String, Unit)");
+    case TOK_KW_INT:
+        parser_advance(p);
+        return TYPE_INT;
+    case TOK_KW_DOUBLE:
+        parser_advance(p);
+        return TYPE_DOUBLE;
+    case TOK_KW_STRING:
+        parser_advance(p);
+        return TYPE_STRING;
+    case TOK_KW_UNIT:
+        parser_advance(p);
+        return TYPE_UNIT;
+    default:
+        syntax_error(p, "expected a valid data type (Int, Double, String, Unit)");
     }
 }
 
@@ -165,7 +166,7 @@ static AstNode *parse_block_or_stmt(Parser *p) {
         return parse_indented_block(p);
     }
 
-    int line = (int)p->current.line;
+    int line       = (int)p->current.line;
     AstNode *block = ast_new_block(line);
     ast_list_append(&block->block.statements, parse_statement(p));
     return block;
@@ -182,7 +183,7 @@ static void parse_param_list(Parser *p, AstNode *func_node) {
             if (p->current.type != TOK_IDENT) {
                 syntax_error(p, "expected parameter identifier");
             }
-            int param_line = (int)p->current.line;
+            int param_line   = (int)p->current.line;
             char *param_name = str_dup_cstr(&p->current.str_val);
             parser_advance(p);
 
@@ -220,7 +221,7 @@ static AstNode *parse_func_def(Parser *p, bool is_main) {
     char *func_name = str_dup_cstr(&p->current.str_val);
     parser_advance(p);
 
-    AstNode *func_node = ast_new_func_def(func_name, is_main, TYPE_UNIT, nullptr, line);
+    AstNode *func_node = ast_new_func_def(func_name, is_main, TYPE_UNKNOWN, nullptr, line);
     free(func_name);
 
     parse_param_list(p, func_node);
@@ -239,7 +240,7 @@ static AstNode *parse_func_def(Parser *p, bool is_main) {
  * @brief Parses a variable declaration (`val` or `var`).
  */
 static AstNode *parse_var_decl(Parser *p) {
-    int line = (int)p->current.line;
+    int line    = (int)p->current.line;
     bool is_var = (p->current.type == TOK_KW_VAR);
     parser_advance(p);
 
@@ -315,39 +316,53 @@ static AstNode *parse_return_stmt(Parser *p) {
     return ast_new_return(expr, line);
 }
 
+AstNode *parse_func_call(Parser *p) {
+    if (p->current.type != TOK_IDENT) {
+        syntax_error(p, "expected function identifier in call");
+    }
+    int line   = (int)p->current.line;
+    char *name = str_dup_cstr(&p->current.str_val);
+    parser_advance(p);
+
+    parser_expect(p, TOK_SEP_LPAREN, "expected '(' after function name");
+
+    AstNode *call_node = ast_new_func_call(name, line);
+    free(name);
+
+    if (p->current.type != TOK_SEP_RPAREN) {
+        while (true) {
+            AstNode *arg = parse_expression(p);
+            ast_list_append(&call_node->func_call.args, arg);
+            if (!parser_accept(p, TOK_SEP_COMMA)) {
+                break;
+            }
+            if (p->current.type == TOK_SEP_RPAREN && p->current.after_newline) {
+                break;
+            }
+        }
+    }
+
+    parser_expect(p, TOK_SEP_RPAREN, "expected ')' after function call arguments");
+    return call_node;
+}
+
 /**
  * @brief Parses an assignment `id = expr` or standalone function call `id(args...)`.
  */
 static AstNode *parse_ident_led_stmt(Parser *p) {
-    int line = (int)p->current.line;
+    if (parser_peek_next(p) == TOK_SEP_LPAREN) {
+        return parse_func_call(p);
+    }
+
+    int line   = (int)p->current.line;
     char *name = str_dup_cstr(&p->current.str_val);
     parser_advance(p);
 
     if (parser_accept(p, TOK_OP_ASSIGN)) {
-        AstNode *val_expr = parse_expression(p);
+        AstNode *val_expr    = parse_expression(p);
         AstNode *assign_node = ast_new_assign(name, val_expr, line);
         free(name);
         return assign_node;
-    }
-
-    if (parser_accept(p, TOK_SEP_LPAREN)) {
-        AstNode *call_node = ast_new_func_call(name, line);
-        free(name);
-
-        if (p->current.type != TOK_SEP_RPAREN) {
-            while (true) {
-                AstNode *arg = parse_expression(p);
-                ast_list_append(&call_node->func_call.args, arg);
-                if (!parser_accept(p, TOK_SEP_COMMA)) {
-                    break;
-                }
-                if (p->current.type == TOK_SEP_RPAREN && p->current.after_newline) {
-                    break;
-                }
-            }
-        }
-        parser_expect(p, TOK_SEP_RPAREN, "expected ')' after function call arguments");
-        return call_node;
     }
 
     free(name);
@@ -359,22 +374,22 @@ static AstNode *parse_ident_led_stmt(Parser *p) {
  */
 static AstNode *parse_statement(Parser *p) {
     switch (p->current.type) {
-        case TOK_KW_VAL:
-        case TOK_KW_VAR:
-            return parse_var_decl(p);
-        case TOK_KW_IF:
-            return parse_if_stmt(p);
-        case TOK_KW_WHILE:
-            return parse_while_stmt(p);
-        case TOK_KW_RETURN:
-            return parse_return_stmt(p);
-        case TOK_IDENT:
-            if (parser_peek_next(p) == TOK_OP_ASSIGN || parser_peek_next(p) == TOK_SEP_LPAREN) {
-                return parse_ident_led_stmt(p);
-            }
-            return parse_expression(p);
-        default:
-            return parse_expression(p);
+    case TOK_KW_VAL:
+    case TOK_KW_VAR:
+        return parse_var_decl(p);
+    case TOK_KW_IF:
+        return parse_if_stmt(p);
+    case TOK_KW_WHILE:
+        return parse_while_stmt(p);
+    case TOK_KW_RETURN:
+        return parse_return_stmt(p);
+    case TOK_IDENT:
+        if (parser_peek_next(p) == TOK_OP_ASSIGN || parser_peek_next(p) == TOK_SEP_LPAREN) {
+            return parse_ident_led_stmt(p);
+        }
+        return parse_expression(p);
+    default:
+        return parse_expression(p);
     }
 }
 
@@ -382,7 +397,7 @@ static AstNode *parse_statement(Parser *p) {
 
 AstNode *parse_program(lexer_t *lex) {
     Parser p = {
-        .lex = lex,
+        .lex     = lex,
         .current = lexer_next(lex),
     };
 
