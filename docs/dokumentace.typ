@@ -113,6 +113,73 @@
 
 === LL tabulka
 
+Zkratka `EXPR_FIRST` označuje terminály, kterými může začínat výraz v precedenční analýze (`id`, literály `INT`/`DOUBLE`/`STRING`/`BOOL`, `(`, unární `-`, `+`, `!`). Neuvedené kombinace vedou na syntaktickou chybu (návratový kód `2`).
+
+#table(
+  columns: (auto, 1fr, auto),
+  align: (left + horizon, left + horizon, center + horizon),
+  table.header([*Neterminál*], [*Predikční terminál(y)*], [*Pravidlo*]),
+  [`<program>`],        [`NEWLINE`, `import`], [*1*],
+  [`<prologue>`],       [`import`], [*2*],
+  [`<opt_nl>`],         [`NEWLINE`], [*3*],
+  [`<opt_nl>`],         [`import`, `@main`, `def`, `INDENT`, `EOF`], [*4*],
+  [`<opt_sep>`],        [`NEWLINE`], [*5*],
+  [`<opt_sep>`],        [`;`], [*6*],
+  [`<opt_sep>`],        [`val`, `var`, `if`, `while`, `return`, `EXPR_FIRST`, `DEDENT`, `EOF`], [*7*],
+  [`<func_list>`],      [`@main`], [*8*],
+  [`<func_list>`],      [`def`], [*9*],
+  [`<func_list>`],      [`EOF`], [*10*],
+  [`<func_def>`],       [`def`], [*11*],
+  [`<param_lists>`],    [`(`], [*12*],
+  [`<param_lists>`],    [`:`, `=`], [*13*],
+  [`<opt_params>`],     [`id`], [*14*],
+  [`<opt_params>`],     [`)`], [*15*],
+  [`<param_tail>`],     [`,`], [*16*],
+  [`<param_tail>`],     [`)`], [*17*],
+  [`<param_next>`],     [`id`], [*18*],
+  [`<param_next>`],     [`)`], [*19*],
+  [`<param>`],          [`id`], [*20*],
+  [`<opt_type>`],       [`:`], [*21*],
+  [`<opt_type>`],       [`=`], [*22*],
+  [`<type>`],           [`Int` / `Double` / `String` / `Boolean` / `Unit`], [*23 / 24 / 25 / 26 / 27*],
+  [`<block_or_stmt>`],  [`NEWLINE`], [*28*],
+  [`<block_or_stmt>`],  [`INDENT`], [*29*],
+  [`<block_or_stmt>`],  [`val`, `var`, `if`, `while`, `return`, `EXPR_FIRST`], [*30*],
+  [`<indented_block>`], [`INDENT`], [*31*],
+  [`<stmt_list>`],      [`val`, `var`, `if`, `while`, `return`, `EXPR_FIRST`], [*32*],
+  [`<stmt_list>`],      [`DEDENT`, `EOF`], [*33*],
+  [`<stmt>`],           [`val`, `var`], [*34*],
+  [`<stmt>`],           [`if`], [*35*],
+  [`<stmt>`],           [`while`], [*36*],
+  [`<stmt>`],           [`return`], [*37*],
+  [`<stmt>`],           [`id` _(další token `=` nebo `(`)_], [*38*],
+  [`<stmt>`],           [`EXPR_FIRST` _(včetně `id` v ostatních případech)_], [*39*],
+  [`<var_decl>`],       [`val`], [*40*],
+  [`<var_decl>`],       [`var`], [*41*],
+  [`<if_stmt>`],        [`if`], [*42*],
+  [`<else_part>`],      [`else` _(příp. `NEWLINE` následovaný `else`)_], [*43*],
+  [`<else_part>`],      [`NEWLINE`, `;`, `DEDENT`, `EOF`, začátek dalšího `<stmt>`], [*44*],
+  [`<while_stmt>`],     [`while`], [*45*],
+  [`<return_stmt>`],    [`return`], [*46*],
+  [`<opt_expr>`],       [`EXPR_FIRST`], [*47*],
+  [`<opt_expr>`],       [`NEWLINE`, `;`, `DEDENT`, `EOF`], [*48*],
+  [`<id_tail>`],        [`=`], [*49*],
+  [`<id_tail>`],        [`(`], [*50*],
+  [`<arg_lists>`],      [`(`], [*51*],
+  [`<arg_lists_tail>`], [`(`], [*52*],
+  [`<arg_lists_tail>`], [`NEWLINE`, `;`, `DEDENT`, `EOF`, `)`, operátory], [*53*],
+  [`<opt_args>`],       [`EXPR_FIRST`], [*54*],
+  [`<opt_args>`],       [`)`], [*55*],
+  [`<arg_tail>`],       [`,`], [*56*],
+  [`<arg_tail>`],       [`)`], [*57*],
+  [`<arg_next>`],       [`EXPR_FIRST`], [*58*],
+  [`<arg_next>`],       [`)`], [*59*],
+)
+
+*Poznámky k implementaci:*
+- Parser je primárně LL(1), ale na dvou místech využívá řízený 1-tokenový lookahead (`lexer_peek`): v `<stmt>` pro rozlišení `id =`, `id (` a obecného výrazu `<expr>`, a v `<else_part>` pro detekci víceřádkového `else` za `NEWLINE` (rozšíření `BOOLTHEN`).
+- Neterminál `<expr>` je delegován precedenční syntaktické analýze v modulu `expr.c`, která pro volání funkcí ve výrazech (`FUNEXP`) zpětně volá `parse_func_call`.
+
 #pagebreak()
 
 === Precedenční tabulka
