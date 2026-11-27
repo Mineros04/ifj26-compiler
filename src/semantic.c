@@ -1,7 +1,7 @@
 /**
- * @file semantic.c
- * @authors Pavel Bobek
- * @brief Implementation of the semantic analyzer for IFJ26.
+- @file semantic.c
+- @authors Pavel Bobek
+- @brief Implementation of the semantic analyzer for IFJ26.
  */
 
 #include "semantic.h"
@@ -17,11 +17,11 @@ static void check_stmt(SemanticContext *ctx, AstNode *node);
 static DataType check_expr(SemanticContext *ctx, AstNode *node);
 
 /**
- * @brief Checks if a node is only a statement.
+- @brief Checks if a node is only a statement.
  *
- * @param node Pointer to a node.
+- @param node Pointer to a node.
  *
- * @return Boolean if the node only body.
+- @return Boolean if the node only body.
  */
 static bool is_stmt_only(const AstNode *node)
 {
@@ -44,12 +44,12 @@ static bool is_stmt_only(const AstNode *node)
 }
 
 /**
- * @brief Searches for a function in the main program branch. Throws error if no function was found.
+- @brief Searches for a function in the main program branch. Throws error if no function was found.
  *
- * @param program Pointer to the program (list of functions).
- * @param name Name of the function to find.
+- @param program Pointer to the program (list of functions).
+- @param name Name of the function to find.
  *
- * @return Returns the node of the named function.
+- @return Returns the node of the named function.
  */
 static AstNode *find_func_node(const AstNode *program, const char *name) {
     for (size_t i = 0; i < program->program.functions.count; i++) {
@@ -62,26 +62,26 @@ static AstNode *find_func_node(const AstNode *program, const char *name) {
 }
 
 /**
- * @brief Checks if the DataType is a number (int or double)
+- @brief Checks if the DataType is a number (int or double)
  *
- * @param type Datatype to check.
+- @param type Datatype to check.
  *
- * @return Bool if the type was int or double.
+- @return Bool if the type was int or double.
  */
 static bool is_num(const DataType type) {
     return type == TYPE_INT || type == TYPE_DOUBLE;
 }
 
 /**
- * @brief Converts int to double if the other node is double and sets convert_to_double.
+- @brief Converts int to double if the other node is double and sets convert_to_double.
  *
- * @param left Left node of the expression.
- * @param left_type Type of the left node.
- * @param right Right node of the expression.
- * @param right_type Type of the right node.
- * @param line Number of line for error code.
+- @param left Left node of the expression.
+- @param left_type Type of the left node.
+- @param right Right node of the expression.
+- @param right_type Type of the right node.
+- @param line Number of line for error code.
  *
- * @return Retuns the resulting DataType.
+- @return Retuns the resulting DataType.
  */
 // TODO: check if this is the correct conversion according to the assignment (it is not) :)
 static DataType convert_num_to_double(AstNode *left,
@@ -112,9 +112,9 @@ static DataType convert_num_to_double(AstNode *left,
 }
 
 /**
- * @brief Pushes the scope of local variables. Throws error if Symtable runs out of memory.
+- @brief Pushes the scope of local variables. Throws error if Symtable runs out of memory.
  *
- * @param ctx Context of the semantic.
+- @param ctx Context of the semantic.
  */
 static void push_scope(const SemanticContext *ctx) {
     if (symtable_push_scope(ctx->locals) == SYMTABLE_OUT_OF_MEM)
@@ -122,22 +122,22 @@ static void push_scope(const SemanticContext *ctx) {
 }
 
 /**
- * @brief Pops the scope of local variables.
+- @brief Pops the scope of local variables.
  *
- * @param ctx Context of the semantic.
+- @param ctx Context of the semantic.
  */
 static void pop_scope(const SemanticContext *ctx) {
     symtable_pop_scope(ctx->locals);
 }
 
 /**
- * @brief Creates a record of the variable in symtable.
+- @brief Creates a record of the variable in symtable.
  *
- * @param ctx Context of the semantic.
- * @param name Name of the variable.
- * @param type DataType of the variable.
- * @param is_mutable Bool if the variable is mutable.
- * @param line Line number for error throwing.
+- @param ctx Context of the semantic.
+- @param name Name of the variable.
+- @param type DataType of the variable.
+- @param is_mutable Bool if the variable is mutable.
+- @param line Line number for error throwing.
  */
 static void declare_var(const SemanticContext *ctx,
                         const char *name,
@@ -163,11 +163,11 @@ static void declare_var(const SemanticContext *ctx,
 }
 
 /**
- * @brief Checks if a function has a return in all logical branches.
+- @brief Checks if a function has a return in all logical branches.
  *
- * @param node Get the node of a function.
+- @param node Get the node of a function.
  *
- * @return Boolean if a function has return keyword in all logical branches.
+- @return Boolean if a function has return keyword in all logical branches.
  */
 static bool check_return(const AstNode *node) {
     // Skip empty node
@@ -198,11 +198,11 @@ static bool check_return(const AstNode *node) {
 }
 
 /**
- * @brief Analyzes a function. Checks if a function has a return type. Checks for correct usage of
- * variables, their scopes and types.
+- @brief Analyzes a function. Checks if a function has a return type. Checks for correct usage of
+- variables, their scopes and types.
  *
- * @param ctx Context of the semantic.
- * @param node Node of a function.
+- @param ctx Context of the semantic.
+- @param node Node of a function.
  */
 static void analyze_func(SemanticContext *ctx, AstNode *node) {
     // Find the function to analyze
@@ -215,9 +215,9 @@ static void analyze_func(SemanticContext *ctx, AstNode *node) {
     if (!fn->return_explicit && fn->inference_state == RETURN_FINALIZED)
         return;
 
-    // Function does not have an explicit return type and resursivly call itself
+    // Function does not have an explicit return type and recursively calls itself
     if (fn->inference_state == RETURN_ANALYSING)
-        error_throw_compile(ERR_SEM_UNDEF,
+        error_throw_compile(ERR_SEM_TYPE_MISMATCH,
                             (size_t)node->line,
                             0,
                             "Cannot infer return type of recursive function '%s'.",
@@ -260,7 +260,11 @@ static void analyze_func(SemanticContext *ctx, AstNode *node) {
 
             if (fn->return_explicit)
             {
-                if (fn->return_type == TYPE_DOUBLE && body_type == TYPE_INT)
+                if (fn->return_type == TYPE_UNIT)
+                {
+                    // Explicit Unit function discards any body expression result
+                }
+                else if (fn->return_type == TYPE_DOUBLE && body_type == TYPE_INT)
                     node->func_def.body->convert_to_double = true;
                 else if (body_type != fn->return_type)
                     error_throw_compile(ERR_SEM_TYPE_MISMATCH,
@@ -294,15 +298,6 @@ static void analyze_func(SemanticContext *ctx, AstNode *node) {
         node->func_def.return_type = fn->return_type;
     }
 
-    // Check if the function has a return type
-    if (fn->return_type != TYPE_UNIT && node->func_def.body != nullptr &&
-        node->func_def.body->type == AST_BLOCK && !check_return(node->func_def.body))
-        error_throw_compile(ERR_SEM_OTHER,
-                            (size_t)node->line,
-                            0,
-                            "Function '%s' does not have a return value.",
-                            node->func_def.name);
-
     node->inferred_type = fn->return_type;
 
     // Free all allocated memory and set the prev function and locals
@@ -312,11 +307,11 @@ static void analyze_func(SemanticContext *ctx, AstNode *node) {
 }
 
 /**
- * @brief Recursivly checks a body. Checks all variables if they have correct DataType and exist in
- * their scopes.
+- @brief Recursivly checks a body. Checks all variables if they have correct DataType and exist in
+- their scopes.
  *
- * @param ctx Context of the semantic.
- * @param node Node of a body.
+- @param ctx Context of the semantic.
+- @param node Node of a body.
  */
 static void check_stmt(SemanticContext *ctx, AstNode *node) {
     // Skip empty body
@@ -346,11 +341,6 @@ static void check_stmt(SemanticContext *ctx, AstNode *node) {
 
             // Set the final DataType and check for int to double conversion
             if (declared_type == TYPE_UNKNOWN) {
-                if (init_type == TYPE_UNIT)
-                    error_throw_compile(ERR_SEM_TYPE_MISMATCH,
-                                        (size_t)node->line,
-                                        0,
-                                        "Cannot infer variable type from Unit expression.");
                 final_type = init_type;
             } else if (declared_type == TYPE_DOUBLE && init_type == TYPE_INT) {
                 node->var_decl.init_expr->convert_to_double = true;
@@ -488,29 +478,27 @@ static void check_stmt(SemanticContext *ctx, AstNode *node) {
         const DataType expr_type =
             node->return_stmt.expr != nullptr ? check_expr(ctx, node->return_stmt.expr) : TYPE_UNIT;
 
-        // Set the conversion
-        if (fn->return_explicit) {
-            if (fn->return_type == TYPE_DOUBLE && expr_type == TYPE_INT)
-                node->return_stmt.expr->convert_to_double = true;
-            else if (expr_type != fn->return_type)
-                error_throw_compile(ERR_SEM_TYPE_MISMATCH,
-                                    (size_t)node->line,
-                                    0,
-                                    "Return expression type does not match function return type.");
+        // Functions using return must declare an explicit return type
+        if (!fn->return_explicit) {
+            error_throw_compile(ERR_SEM_TYPE_MISMATCH,
+                                (size_t)node->line,
+                                0,
+                                "Function '%s' uses 'return' and must have an explicit return type.",
+                                ctx->current_func->identifier);
         }
-        // Set the conversion and return type
-        else {
-            if (fn->return_type == TYPE_UNKNOWN)
-                fn->return_type = expr_type;
-            else if (fn->return_type == TYPE_DOUBLE && expr_type == TYPE_INT)
-                node->return_stmt.expr->convert_to_double = true;
-            else if (expr_type != fn->return_type)
-                error_throw_compile(ERR_SEM_TYPE_MISMATCH,
-                                    (size_t)node->line,
-                                    0,
-                                    "Inconsistent return types in function '%s'.",
-                                    ctx->current_func->identifier);
+
+        // Explicit Unit function discards any return expression result
+        if (fn->return_type == TYPE_UNIT) {
+            break;
         }
+
+        if (fn->return_type == TYPE_DOUBLE && expr_type == TYPE_INT)
+            node->return_stmt.expr->convert_to_double = true;
+        else if (expr_type != fn->return_type)
+            error_throw_compile(ERR_SEM_TYPE_MISMATCH,
+                                (size_t)node->line,
+                                0,
+                                "Return expression type does not match function return type.");
         break;
     }
 
@@ -523,13 +511,13 @@ static void check_stmt(SemanticContext *ctx, AstNode *node) {
 }
 
 /**
- * @brief Recursivly checks an expression. Checks all variables if they have correct DataType and
- * exist in their scopes.
+- @brief Recursivly checks an expression. Checks all variables if they have correct DataType and
+- exist in their scopes.
  *
- * @param ctx Context of the semantic.
- * @param node Node of a body.
+- @param ctx Context of the semantic.
+- @param node Node of a body.
  *
- * @return Returns the final DataType of the expression.
+- @return Returns the final DataType of the expression.
  */
 static DataType check_expr(SemanticContext *ctx, AstNode *node) {
     // Skip empty node with returning UNIT (void) type
@@ -566,17 +554,43 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
     }
 
     case AST_IDENT: {
-        // Find the variable and check if it exists
+        // Find the variable first
         const symbol_t *symbol = symtable_find_var(ctx->locals, node->ident.name);
-        if (symbol == nullptr)
+        if (symbol != nullptr) {
+            result = symbol->data.variable.data_type;
+            break;
+        }
+
+        // Fall back to parameterless function call (PARAMLISTS)
+        const symbol_t *func_symbol = symtable_find_func(ctx->funcs, node->ident.name);
+        if (func_symbol == nullptr)
             error_throw_compile(ERR_SEM_UNDEF,
                                 (size_t)node->line,
                                 0,
                                 "Undefined variable '%s'",
                                 node->ident.name);
 
-        // Set the result to the symbol variable DataType
-        result = symbol->data.variable.data_type;
+        const func_desc_t *fn = &func_symbol->data.function;
+        if (fn->param_list_cnt > 0)
+            error_throw_compile(ERR_SEM_INVALID_ARG,
+                                (size_t)node->line,
+                                0,
+                                "Function '%s' expects %zu parameter list(s), got 0.",
+                                node->ident.name,
+                                fn->param_list_cnt);
+
+        if (fn->inference_state == RETURN_UNRESOLVED) {
+            AstNode *analyze_node = find_func_node(ctx->program, node->ident.name);
+            analyze_func(ctx, analyze_node);
+        } else if (fn->inference_state == RETURN_ANALYSING) {
+            error_throw_compile(ERR_SEM_TYPE_MISMATCH,
+                                (size_t)node->line,
+                                0,
+                                "Cannot infer return type of recursive function '%s'.",
+                                node->ident.name);
+        }
+
+        result = func_symbol->data.function.return_type;
         break;
     }
 
@@ -774,7 +788,7 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
             AstNode *analyze_node = find_func_node(ctx->program, node->func_call.func_name);
             analyze_func(ctx, analyze_node);
         } else if (fn->inference_state == RETURN_ANALYSING) {
-            error_throw_compile(ERR_SEM_OTHER,
+            error_throw_compile(ERR_SEM_TYPE_MISMATCH,
                                 (size_t)node->line,
                                 0,
                                 "Cannot infer return type of recursive function '%s'.",
@@ -829,7 +843,7 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
         const DataType obj_type = check_expr(ctx, node->member_access.object);
         const char *member      = node->member_access.member_name;
 
-        if (strcmp(member, "toStr") == 0)
+        if (strcmp(member, "toString") == 0)
         {
             result = TYPE_STRING;
         }
@@ -841,13 +855,9 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
         {
             result = TYPE_INT;
         }
-        else if (obj_type == TYPE_INT && strcmp(member, "toDouble") == 0)
+        else if (obj_type == TYPE_DOUBLE && strcmp(member, "floor") == 0)
         {
             result = TYPE_DOUBLE;
-        }
-        else if (obj_type == TYPE_INT && strcmp(member, "chr") == 0)
-        {
-            result = TYPE_STRING;
         }
         else
         {
@@ -1002,7 +1012,6 @@ void semantic_analyzer(AstNode *program) {
     }
 
     // Check the return type of the main function once more
-    main_symbol = symtable_find_func(ctx.funcs, "main");
     main_symbol = symtable_find_func(ctx.funcs, main_name);
     if (main_symbol->data.function.return_type != TYPE_UNIT)
         error_throw_compile(ERR_SEM_TYPE_MISMATCH,
