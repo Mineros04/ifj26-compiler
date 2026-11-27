@@ -66,7 +66,7 @@
   // Customize the page details
   #set page(margin: (left: 25mm, right: 25mm, top: 25mm, bottom: 25mm))
   #set heading(numbering: "1.1")
-  #set text(font: "Liberation Sans", size: 11pt)
+  #set text(font: "Noto Sans", size: 11pt)
 
   // Customize the outline formatting (General)
   #show outline.entry: entry => {
