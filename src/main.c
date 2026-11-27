@@ -5,8 +5,10 @@
  */
 
 #include "ast.h"
+#include "codegen.h"
 #include "lexer.h"
 #include "parser.h"
+#include "semantic.h"
 #include "shared/error.h"
 #include "shared/str.h"
 #include <stdio.h>
@@ -35,9 +37,8 @@ int main(void) {
     lexer_init(&lex, &src);
 
     AstNode *program = parse_program(&lex);
-
-    // TODO: semantic analysis (pass `program`, build symtable)
-    // TODO: code generation (emit IFJcode26 from `program`)
+    semantic_analyzer(program);
+    codegen_generate(program, stdout);
 
     ast_free(program);
     lexer_free(&lex);
