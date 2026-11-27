@@ -866,9 +866,12 @@ void semantic_analyzer(AstNode *program) {
 
     // Loop through all functions and register them
     for (size_t i = 0; i < program->program.functions.count; i++) {
-        const AstNode *node = program->program.functions.items[i];
+        AstNode *node = program->program.functions.items[i];
         if (node == nullptr || node->type != AST_FUNC_DEF)
             error_throw_internal("Program node is not a function node.");
+
+        if (node->func_def.is_main)
+            node->func_def.name = "main";
 
         const size_t param_cnt = node->func_def.params.count;
         param_desc_t *params = param_cnt > 0 ? safe_malloc(sizeof(param_desc_t) * param_cnt) : nullptr;
