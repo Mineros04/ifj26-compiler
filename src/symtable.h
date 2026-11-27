@@ -149,6 +149,9 @@ void symtable_pop_scope(symtable_t *table);
  *
  * If not, the inference state is RETURN_UNRESOLVED and return type is TYPE_UNKNOWN, whatever the
  * caller passes.
+ *
+ * param_list_sizes is also copied (caller retains ownership) - param_list_cnt == 0 requires
+ * parameter_cnt == 0.
  */
 [[nodiscard]] symtable_status_t
 symtable_insert_func(symtable_t *table, const char *name, func_desc_t description, int line_num);

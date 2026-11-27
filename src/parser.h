@@ -35,3 +35,57 @@ typedef struct Parser Parser;
  * @throws Error 99 - Allocation failed
  */
 [[nodiscard]] AstNode *parse_expression(Parser *p);
+
+/**
+ * @brief Returns a read-only pointer to the current token held by the parser.
+ *
+ * @param p Pointer to the active parser state.
+ * @returns Pointer to the current token (valid until the next `parser_advance` call).
+ */
+[[nodiscard]] const token_t *parser_current(const Parser *p);
+
+/**
+ * @brief Releases the current token and fetches the next one from the lexer.
+ *
+ * @param p Pointer to the active parser state.
+ *
+ * @throws Error 1 - Lexical error
+ * @throws Error 99 - Allocation failed
+ */
+void parser_advance(Parser *p);
+
+/**
+ * @brief Peeks at the type of the next token without consuming the current token.
+ *
+ * @param p Pointer to the active parser state.
+ * @returns The `token_type_t` of the next token.
+ *
+ * @throws Error 1 - Lexical error
+ * @throws Error 99 - Allocation failed
+ */
+[[nodiscard]] token_type_t parser_peek_next(Parser *p);
+
+/**
+ * @brief Reports a syntax error at the current token and terminates the compiler with exit code 2.
+ *
+ * @param p Pointer to the active parser state.
+ * @param msg Error description message.
+ *
+ * @throws Error 2 - Syntax error
+ */
+[[noreturn]] void syntax_error(const Parser *p, const char *msg);
+
+/**
+ * @brief Parses a function call `id(arg1, arg2, ...)`.
+ *
+ * Expects `p->current` to be `TOK_IDENT` (the function name) followed by `TOK_SEP_LPAREN`.
+ * Consumes the entire call including the closing `')'`, leaving `p->current` at the next token.
+ *
+ * @param p Pointer to the active parser state.
+ * @returns Pointer to the created AST_FUNC_CALL node.
+ *
+ * @throws Error 1 - Lexical error
+ * @throws Error 2 - Syntax error
+ * @throws Error 99 - Allocation failed
+ */
+[[nodiscard]] AstNode *parse_func_call(Parser *p);
