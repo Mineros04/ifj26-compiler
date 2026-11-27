@@ -67,6 +67,7 @@ typedef enum {
 
     // Expressions & Calls
     AST_FUNC_CALL,    // Function call id(args...)
+    AST_MEMBER_ACCESS, // Member access expr.member (VALMEM extension)
     AST_BIN_OP,       // Binary operation (a + b, x < y, ...)
     AST_UN_OP,        // Unary operation (-x, !b)
     AST_IDENT,        // Variable identifier in an expression
@@ -188,6 +189,12 @@ struct AstNode {
             char *name;
         } ident;
 
+        // AST_MEMBER_ACCESS
+        struct {
+            AstNode *object;
+            char *member_name;
+        } member_access;
+
         // Literals
         int64_t lit_int;
         double lit_double;
@@ -222,6 +229,7 @@ AstNode *ast_new_lit_double(double value, int line);
 AstNode *ast_new_lit_string(const char *value, int line);
 AstNode *ast_new_lit_bool(bool value, int line);
 AstNode *ast_new_lit_unit(int line);
+AstNode *ast_new_member_access(AstNode *object, const char *member_name, int line);
 
 // Memory Management
 

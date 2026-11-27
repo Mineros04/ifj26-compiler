@@ -205,6 +205,13 @@ AstNode *ast_new_lit_unit(int line) {
     return node;
 }
 
+AstNode *ast_new_member_access(AstNode *object, const char *member_name, int line) {
+    AstNode *node = ast_alloc_node(AST_MEMBER_ACCESS, line);
+    node->member_access.object = object;
+    node->member_access.member_name = ast_copy_str(member_name);
+    return node;
+}
+
 // Memory Management (Recursive cleanup)
 
 static void ast_list_free(AstNodeList *list) {
@@ -295,6 +302,11 @@ void ast_free(AstNode *node) {
 
     case AST_LIT_STRING:
         free(node->lit_string);
+        break;
+
+    case AST_MEMBER_ACCESS:
+        ast_free(node->member_access.object);
+        free(node->member_access.member_name);
         break;
 
     case AST_LIT_INT:
