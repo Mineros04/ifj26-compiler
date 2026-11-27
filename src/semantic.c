@@ -677,6 +677,26 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
                                 fn->parameter_cnt,
                                 node->func_call.args.count);
 
+        // Check argument count inside each parameter list
+        for (size_t i = 0; i < fn->param_list_cnt; i++)
+        {
+            if (node->func_call.arg_list_sizes[i] != fn->param_list_sizes[i])
+                error_throw_compile(ERR_SEM_INVALID_ARG, (size_t)node->line, 0,
+                                    "Parameter list %zu of '%s' expects %zu argument(s), got %zu.",
+                                    i + 1,
+                                    node->func_call.func_name,
+                                    fn->param_list_sizes[i],
+                                    node->func_call.arg_list_sizes[i]);
+        }
+
+        // Defensive total argument count check
+        if (node->func_call.args.count != fn->parameter_cnt)
+            error_throw_compile(ERR_SEM_INVALID_ARG, (size_t)node->line, 0,
+                                "Function '%s' expects %zu argument(s), got %zu.",
+                                node->func_call.func_name,
+                                fn->parameter_cnt,
+                                node->func_call.args.count);
+
         // Check all arguments and their DataTypes if they match with parameters DataTypes
         for (size_t i = 0; i < node->func_call.args.count; i++) {
             AstNode *argument           = node->func_call.args.items[i];
@@ -746,6 +766,46 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
                                 (size_t)node->line,
                                 0,
                                 "Branches of ternary expression have incompatible types.");
+        break;
+    }
+
+    case AST_MEMBER_ACCESS:
+    {
+        if (node->member_access.object == nullptr || node->member_access.member_name == nullptr)
+            error_throw_internal("Invalid AST_MEMBER_ACCESS node.");
+
+        const DataType obj_type = check_expr(ctx, node->member_access.object);
+        const char *member      = node->member_access.member_name;
+
+        if (strcmp(member, "toStr") == 0)
+        {
+            result = TYPE_STRING;
+        }
+        else if (obj_type == TYPE_STRING && strcmp(member, "length") == 0)
+        {
+            result = TYPE_INT;
+        }
+        else if (obj_type == TYPE_DOUBLE && strcmp(member, "toInt") == 0)
+        {
+            result = TYPE_INT;
+        }
+        else if (obj_type == TYPE_INT && strcmp(member, "toDouble") == 0)
+        {
+            result = TYPE_DOUBLE;
+        }
+        else if (obj_type == TYPE_INT && strcmp(member, "chr") == 0)
+        {
+            result = TYPE_STRING;
+        }
+        else
+        {
+            // Verify required exit code for unknown member in section 5.4
+            error_throw_compile(ERR_SEM_UNDEF,
+                                (size_t)node->line,
+                                0,
+                                "Unknown member '%s' for this expression type.",
+                                member);
+        }
         break;
     }
 
