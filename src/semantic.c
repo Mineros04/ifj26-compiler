@@ -864,14 +864,22 @@ void semantic_analyzer(AstNode *program) {
     if (symtable_status == SYMTABLE_OUT_OF_MEM)
         error_throw_internal("Symtable ran out of memory.");
 
+    const char *main_name = nullptr;
+
     // Loop through all functions and register them
     for (size_t i = 0; i < program->program.functions.count; i++) {
         AstNode *node = program->program.functions.items[i];
         if (node == nullptr || node->type != AST_FUNC_DEF)
             error_throw_internal("Program node is not a function node.");
 
-        if (node->func_def.is_main)
-            node->func_def.name = "main";
+        if (node->func_def.is_main) {
+            if (main_name != nullptr)
+                error_throw_compile(ERR_SEM_REDEF,
+                                    (size_t)node->line,
+                                    0,
+                                    "Multiple '@main' functions defined.");
+            main_name = node->func_def.name;
+        }
 
         const size_t param_cnt = node->func_def.params.count;
         param_desc_t *params = param_cnt > 0 ? safe_malloc(sizeof(param_desc_t) * param_cnt) : nullptr;
@@ -910,21 +918,25 @@ void semantic_analyzer(AstNode *program) {
             error_throw_internal("Symtable ran out of memory.");
     }
 
+    if (main_name == nullptr)
+        error_throw_compile(ERR_SEM_UNDEF, 0, 0, "Missing '@main' function.");
+
     // Check if we have a main function with the correct return type
     const symbol_t *main_symbol = symtable_find_func(ctx.funcs, "main");
     if (main_symbol == nullptr)
-        error_throw_compile(ERR_SEM_UNDEF, 0, 0, "Missing 'main' function.");
-    if (main_symbol->data.function.parameter_cnt != 0)
+        error_throw_internal("Main function '%s' missing from symtable.", main_name);
+    if (main_symbol->data.function.parameter_cnt != 0 ||
+        main_symbol->data.function.param_list_cnt > 1)
         error_throw_compile(ERR_SEM_INVALID_ARG,
                             (size_t)main_symbol->line_number,
                             0,
-                            "'main' function must not have any parameters.");
+                            "'@main' function must not have any parameters.");
     if (main_symbol->data.function.return_explicit &&
         main_symbol->data.function.return_type != TYPE_UNIT)
         error_throw_compile(ERR_SEM_TYPE_MISMATCH,
                             (size_t)main_symbol->line_number,
                             0,
-                            "'main' function must have return type of int.");
+                            "'@main' function must have return type Unit.");
 
     // Loop through all functions and analyze them
     for (size_t i = 0; i < program->program.functions.count; i++) {
@@ -935,11 +947,12 @@ void semantic_analyzer(AstNode *program) {
 
     // Check the return type of the main function once more
     main_symbol = symtable_find_func(ctx.funcs, "main");
+    main_symbol = symtable_find_func(ctx.funcs, main_name);
     if (main_symbol->data.function.return_type != TYPE_UNIT)
         error_throw_compile(ERR_SEM_TYPE_MISMATCH,
                             (size_t)main_symbol->line_number,
                             0,
-                            "'main' function must have return type of int.");
+                            "'@main' function must have return type Unit.");
 
     // Free all allocated memory
     symtable_destroy(funcs);
