@@ -231,7 +231,9 @@ static AstNode *parse_func_def(Parser *p, bool is_main) {
     AstNode *func_node = ast_new_func_def(func_name, is_main, TYPE_UNKNOWN, nullptr, line);
     free(func_name);
 
-    parse_param_list(p, func_node);
+    while (p->current.type == TOK_SEP_LPAREN) {
+        parse_param_list(p, func_node);
+    }
 
     if (parser_accept(p, TOK_SEP_COLON)) {
         func_node->func_def.return_type = parse_data_type(p);
@@ -331,25 +333,28 @@ AstNode *parse_func_call(Parser *p) {
     char *name = str_dup_cstr(&p->current.str_val);
     parser_advance(p);
 
-    parser_expect(p, TOK_SEP_LPAREN, "expected '(' after function name");
-
     AstNode *call_node = ast_new_func_call(name, line);
     free(name);
 
-    if (p->current.type != TOK_SEP_RPAREN) {
-        while (true) {
-            AstNode *arg = parse_expression(p);
-            ast_list_append(&call_node->func_call.args, arg);
-            if (!parser_accept(p, TOK_SEP_COMMA)) {
-                break;
-            }
-            if (p->current.type == TOK_SEP_RPAREN && p->current.after_newline) {
-                break;
+    do {
+        parser_expect(p, TOK_SEP_LPAREN, "expected '(' after function name");
+
+        if (p->current.type != TOK_SEP_RPAREN) {
+            while (true) {
+                AstNode *arg = parse_expression(p);
+                ast_list_append(&call_node->func_call.args, arg);
+                if (!parser_accept(p, TOK_SEP_COMMA)) {
+                    break;
+                }
+                if (p->current.type == TOK_SEP_RPAREN && p->current.after_newline) {
+                    break;
+                }
             }
         }
-    }
 
-    parser_expect(p, TOK_SEP_RPAREN, "expected ')' after function call arguments");
+        parser_expect(p, TOK_SEP_RPAREN, "expected ')' after function call arguments");
+    } while (p->current.type == TOK_SEP_LPAREN);
+
     return call_node;
 }
 
