@@ -54,10 +54,10 @@ void ast_list_append(AstNodeList *list, AstNode *node) {
     list->items[list->count++] = node;
 }
 static void append_list_size(size_t **sizes, size_t *count, size_t size) {
-    size_t new_cnt  = *count + 1;
-    *sizes          = safe_realloc(*sizes, new_cnt * sizeof(size_t));
+    size_t new_cnt   = *count + 1;
+    *sizes           = safe_realloc(*sizes, new_cnt * sizeof(size_t));
     (*sizes)[*count] = size;
-    *count          = new_cnt;
+    *count           = new_cnt;
 }
 
 void ast_func_def_add_param_list(AstNode *func_node, size_t size) {
@@ -224,8 +224,8 @@ AstNode *ast_new_lit_unit(int line) {
 }
 
 AstNode *ast_new_member_access(AstNode *object, const char *member_name, int line) {
-    AstNode *node = ast_alloc_node(AST_MEMBER_ACCESS, line);
-    node->member_access.object = object;
+    AstNode *node                   = ast_alloc_node(AST_MEMBER_ACCESS, line);
+    node->member_access.object      = object;
     node->member_access.member_name = ast_copy_str(member_name);
     return node;
 }

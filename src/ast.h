@@ -31,51 +31,51 @@ typedef enum {
  * @brief Operators for expression nodes.
  */
 typedef enum {
-    OP_ADD,    // + (addition or concatenation)
-    OP_SUB,    // - (subtraction)
-    OP_MUL,    // *
-    OP_DIV,    // / (integer and floating-point division)
-    OP_EQ,     // ==
-    OP_NEQ,    // !=
-    OP_LT,     // <
-    OP_LE,     // <=
-    OP_GT,     // >
-    OP_GE,     // >=
-    OP_AND,    // && (BOOLTHEN)
-    OP_OR,     // || (BOOLTHEN)
-    OP_NEG,    // unary -
-    OP_POS,    // unary +
-    OP_NOT     // unary ! (BOOLTHEN)
+    OP_ADD, // + (addition or concatenation)
+    OP_SUB, // - (subtraction)
+    OP_MUL, // *
+    OP_DIV, // / (integer and floating-point division)
+    OP_EQ,  // ==
+    OP_NEQ, // !=
+    OP_LT,  // <
+    OP_LE,  // <=
+    OP_GT,  // >
+    OP_GE,  // >=
+    OP_AND, // && (BOOLTHEN)
+    OP_OR,  // || (BOOLTHEN)
+    OP_NEG, // unary -
+    OP_POS, // unary +
+    OP_NOT  // unary ! (BOOLTHEN)
 } OperatorType;
 
 /**
  * @brief AST node types.
  */
 typedef enum {
-    AST_PROGRAM,      // Root of the program (list of functions)
-    AST_FUNC_DEF,     // Function definition (def id(...) = ...)
-    AST_PARAM,        // Formal function parameter (id: Type)
-    AST_BLOCK,        // Block of statements (creates a new scope)
+    AST_PROGRAM,  // Root of the program (list of functions)
+    AST_FUNC_DEF, // Function definition (def id(...) = ...)
+    AST_PARAM,    // Formal function parameter (id: Type)
+    AST_BLOCK,    // Block of statements (creates a new scope)
 
     // Statements
-    AST_VAR_DECL,     // Variable declaration (val / var)
-    AST_ASSIGN,       // Assignment (id = expr)
-    AST_IF,           // If-then-else statement (or expression in CONTROL)
-    AST_WHILE,        // While loop
-    AST_FOR,          // For loop (CONTROL extension)
-    AST_RETURN,       // Return statement
+    AST_VAR_DECL, // Variable declaration (val / var)
+    AST_ASSIGN,   // Assignment (id = expr)
+    AST_IF,       // If-then-else statement (or expression in CONTROL)
+    AST_WHILE,    // While loop
+    AST_FOR,      // For loop (CONTROL extension)
+    AST_RETURN,   // Return statement
 
     // Expressions & Calls
-    AST_FUNC_CALL,    // Function call id(args...)
+    AST_FUNC_CALL,     // Function call id(args...)
     AST_MEMBER_ACCESS, // Member access expr.member (VALMEM extension)
-    AST_BIN_OP,       // Binary operation (a + b, x < y, ...)
-    AST_UN_OP,        // Unary operation (-x, !b)
-    AST_IDENT,        // Variable identifier in an expression
-    AST_LIT_INT,      // Integer literal
-    AST_LIT_DOUBLE,   // Double literal
-    AST_LIT_STRING,   // String literal
-    AST_LIT_BOOL,     // Boolean literal (true / false)
-    AST_LIT_UNIT      // Unit literal ()
+    AST_BIN_OP,        // Binary operation (a + b, x < y, ...)
+    AST_UN_OP,         // Unary operation (-x, !b)
+    AST_IDENT,         // Variable identifier in an expression
+    AST_LIT_INT,       // Integer literal
+    AST_LIT_DOUBLE,    // Double literal
+    AST_LIT_STRING,    // String literal
+    AST_LIT_BOOL,      // Boolean literal (true / false)
+    AST_LIT_UNIT       // Unit literal ()
 } AstNodeType;
 
 /**
@@ -217,14 +217,22 @@ void ast_func_call_add_arg_list(AstNode *call_node, size_t size);
 // AST Node Constructors
 
 AstNode *ast_new_program(void);
-AstNode *ast_new_func_def(const char *name, bool is_main, DataType return_type, AstNode *body, int line);
+AstNode *
+ast_new_func_def(const char *name, bool is_main, DataType return_type, AstNode *body, int line);
 AstNode *ast_new_param(const char *name, DataType data_type, int line);
 AstNode *ast_new_block(int line);
-AstNode *ast_new_var_decl(const char *name, bool is_var, DataType var_type, AstNode *init_expr, int line);
+AstNode *
+ast_new_var_decl(const char *name, bool is_var, DataType var_type, AstNode *init_expr, int line);
 AstNode *ast_new_assign(const char *target_name, AstNode *value_expr, int line);
 AstNode *ast_new_if(AstNode *condition, AstNode *then_branch, AstNode *else_branch, int line);
 AstNode *ast_new_while(AstNode *condition, AstNode *body, int line);
-AstNode *ast_new_for(const char *iter_name, AstNode *from_expr, AstNode *to_expr, AstNode *step_expr, bool is_until, AstNode *body, int line);
+AstNode *ast_new_for(const char *iter_name,
+                     AstNode *from_expr,
+                     AstNode *to_expr,
+                     AstNode *step_expr,
+                     bool is_until,
+                     AstNode *body,
+                     int line);
 AstNode *ast_new_return(AstNode *expr, int line);
 AstNode *ast_new_func_call(const char *func_name, int line);
 AstNode *ast_new_bin_op(OperatorType op, AstNode *left, AstNode *right, int line);

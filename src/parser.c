@@ -152,8 +152,7 @@ static AstNode *parse_indented_block(Parser *p) {
 
         if (p->current.type == TOK_NEWLINE || p->current.type == TOK_SEP_SEMI) {
             parser_skip_separators(p);
-        } else if (!p->current.after_newline &&
-                   p->current.type != TOK_DEDENT &&
+        } else if (!p->current.after_newline && p->current.type != TOK_DEDENT &&
                    p->current.type != TOK_EOF) {
             syntax_error(p, "expected newline or ';' between statements");
         }
