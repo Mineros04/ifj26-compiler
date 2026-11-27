@@ -21,7 +21,7 @@ struct Parser {
 /**
  * @brief Reports a syntax error and terminates the compiler with exit code 2.
  */
-[[noreturn]] static void syntax_error(const Parser *p, const char *msg) {
+[[noreturn]] void syntax_error(const Parser *p, const char *msg) {
     error_throw_compile(ERR_SYNTAX,
                         p->current.line,
                         p->current.column,
@@ -30,10 +30,14 @@ struct Parser {
                         msg);
 }
 
+const token_t *parser_current(const Parser *p) {
+    return &p->current;
+}
+
 /**
  * @brief Releases the current token and fetches the next one from the lexer.
  */
-static void parser_advance(Parser *p) {
+void parser_advance(Parser *p) {
     token_free(&p->current);
     p->current = lexer_next(p->lex);
 }
@@ -41,7 +45,7 @@ static void parser_advance(Parser *p) {
 /**
  * @brief Peeks at the type of the next token without consuming the current token.
  */
-static token_type_t parser_peek_next(Parser *p) {
+token_type_t parser_peek_next(Parser *p) {
     return lexer_peek(p->lex)->type;
 }
 
