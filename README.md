@@ -6,7 +6,17 @@ IFJ26 is a simplified subset of Scala with static typing, type inference, indent
 
 ## Project status
 
-TBD
+The compiler is finished with extensions outlined below.
+
+| Component                    | Module                             | State                    |
+| ---------------------------- | ---------------------------------- | ------------------------ |
+| Lexical analysis             | `lexer.c`                          | Implemented, unit-tested |
+| Syntax analysis (statements) | `parser.c`                         | Implemented              |
+| Expression parsing           | `expr.c`                           | Implemented, unit-tested |
+| Abstract syntax tree         | `ast.c`                            | Implemented, unit-tested |
+| Symbol table (`TRP-izp`)     | `symtable.c`, `shared/hashtable.c` | Implemented, unit-tested |
+| Semantic analysis            | `semantic.c`                       | Implemented              |
+| Code generation (IFJcode26)  | `codegen.c`                        | Implemented              |
 
 ## Compiler interface
 
@@ -21,7 +31,24 @@ The generated code can be executed using the `ic26int` interpreter provided with
 
 ## Building and running
 
-TBD
+Requirements: `clang` with C23 support and `make`. `valgrind` is optional for memory checks, and Graphviz (`dot`) is needed only to regenerate documentation figures.
+
+```sh
+make build                                  # build the compiler into dist/compiler
+./dist/compiler < program.ifj26 > out.code  # compile an IFJ26 program
+ic26int out.code                            # run the generated IFJcode26
+echo $?                                     # compiler exit code (see below)
+```
+
+Other targets:
+
+| Target          | Description                                                       |
+| --------------- | ----------------------------------------------------------------- |
+| `make` / `all`  | Build and run the compiler (reads from standard input)            |
+| `make run`      | Run the already built compiler                                    |
+| `make memcheck` | Run the compiler under `valgrind --leak-check=full`               |
+| `make docs`     | Render the lexer FSM and architecture diagrams to `docs/figures/` |
+| `make clean`    | Remove the `dist/` directory                                      |
 
 ## Example IFJ26 program
 
@@ -51,14 +78,21 @@ See the language specification for the full rules and runtime error behavior.
 
 ## Testing
 
-TBD
+Unit tests use the single-header [utest.h](tests/utest.h) framework and live in [tests/](tests/), one file per module (`test_lexer.c`, `test_expr.c`, `test_ast.c`, `test_symtable.c`, `test_hashtable.c`). All modules except `main.c` are linked into a single test runner.
+
+```sh
+make test                                    # build dist/test_runner and run all tests
+make test TEST_ARGS="--filter=lexer.*"       # run only tests matching a pattern
+make test TEST_ARGS="--list-tests"           # list available tests
+```
+
+The test runner is built with debug symbols (`-g`), so it can be checked directly with `valgrind --leak-check=full ./dist/test_runner`.
 
 ## Team and implementation details
 
 - **Team members:** Pavel Bobek, Adam Jaroš, Tomáš Komenda, Ondřej Pippal
 - **Symbol-table variant:** `TRP-izp`
 - **Implemented extensions:** FUNEXP, BOOLTHEN, VALMEM, PARAMLISTS
-- **Source layout and module descriptions:** TODO
 - **Code formatting style:** as defined in [.clang-format](.clang-format)
 
 ## Reference documents
