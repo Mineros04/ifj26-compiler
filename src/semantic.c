@@ -17,6 +17,33 @@ static void check_stmt(SemanticContext *ctx, AstNode *node);
 static DataType check_expr(SemanticContext *ctx, AstNode *node);
 
 /**
+ * @brief Checks if a node is only a statement.
+ *
+ * @param node Pointer to a node.
+ *
+ * @return Boolean if the node only body.
+ */
+static bool is_stmt_only(const AstNode *node)
+{
+    if (node == nullptr)
+        return true;
+
+    switch (node->type)
+    {
+    case AST_VAR_DECL:
+    case AST_ASSIGN:
+    case AST_WHILE:
+    case AST_FOR:
+    case AST_RETURN:
+        return true;
+    case AST_IF:
+        return node->if_stmt.else_branch == nullptr;
+    default:
+        return false;
+    }
+}
+
+/**
  * @brief Searches for a function in the main program branch. Throws error if no function was found.
  *
  * @param program Pointer to the program (list of functions).
@@ -219,31 +246,46 @@ static void analyze_func(SemanticContext *ctx, AstNode *node) {
         declare_var(ctx, param->param.name, param->param.data_type, false, param->line);
     }
 
-    if (node->func_def.body != nullptr) {
-        // Check the body of a function
-        if (node->func_def.body->type == AST_BLOCK)
+    if (node->func_def.body != nullptr)
+    {
+        if (check_return(node->func_def.body))
+        {
+            // Every execution path terminates with an explicit return statement
             check_stmt(ctx, node->func_def.body);
-
-        // Handle the special definition of a function where it does not have a body but an
-        // expression instead
-        else {
-            // Get the DataType and check it
+        }
+        else
+        {
+            // Execution can reach the end, last expression is the implicit return value
             const DataType body_type = check_expr(ctx, node->func_def.body);
-            if (fn->return_explicit) {
+
+            if (fn->return_explicit)
+            {
                 if (fn->return_type == TYPE_DOUBLE && body_type == TYPE_INT)
                     node->func_def.body->convert_to_double = true;
                 else if (body_type != fn->return_type)
-                    error_throw_compile(ERR_SEM_OTHER,
+                    error_throw_compile(ERR_SEM_TYPE_MISMATCH,
                                         (size_t)node->line,
                                         0,
-                                        "Function body type does not match declared return type.");
-            } else
-                fn->return_type = body_type;
+                                        "Function '%s' body type does not match declared return type.",
+                                        node->func_def.name);
+            }
+            else
+            {
+                if (fn->return_type == TYPE_UNKNOWN)
+                    fn->return_type = body_type;
+                else if (fn->return_type == TYPE_DOUBLE && body_type == TYPE_INT)
+                    node->func_def.body->convert_to_double = true;
+                else if (body_type != fn->return_type)
+                    error_throw_compile(ERR_SEM_TYPE_MISMATCH,
+                                        (size_t)node->line,
+                                        0,
+                                        "Inconsistent return types in function '%s'.",
+                                        node->func_def.name);
+            }
         }
     }
 
     // Set return type to UNIT if needed, finalize the inference state of the function and set the
-    // node return_type
     if (!fn->return_explicit) {
         if (fn->return_type == TYPE_UNKNOWN)
             fn->return_type = TYPE_UNIT;
@@ -824,12 +866,26 @@ static DataType check_expr(SemanticContext *ctx, AstNode *node) {
         push_scope(ctx);
         const size_t count = node->block.statements.count;
         if (count == 0)
+        {
             result = TYPE_UNIT;
-        else {
-            for (size_t i = 0; i < count - 1; i++) {
+        }
+        else
+        {
+            for (size_t i = 0; i < count - 1; i++)
+            {
                 check_stmt(ctx, node->block.statements.items[i]);
             }
-            result = check_expr(ctx, node->block.statements.items[count - 1]);
+
+            AstNode *last = node->block.statements.items[count - 1];
+            if (is_stmt_only(last))
+            {
+                check_stmt(ctx, last);
+                result = TYPE_UNIT;
+            }
+            else
+            {
+                result = check_expr(ctx, last);
+            }
         }
         pop_scope(ctx);
         break;
