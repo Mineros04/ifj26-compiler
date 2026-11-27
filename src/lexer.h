@@ -185,6 +185,13 @@ typedef struct {
     token_t lookahead;
     /// Whether `lookahead` holds a valid token.
     bool has_lookahead;
+
+    /// Whether a token has been emitted on the current logical line (a `TOK_NEWLINE` is awaited
+    /// next).
+    bool line_has_tokens;
+    /// Whether a line break has been skipped since the last emitted token. Related to
+    /// `token_t::after_newline`.
+    bool saw_newline;
 } lexer_t;
 
 /**

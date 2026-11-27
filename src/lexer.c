@@ -157,7 +157,14 @@ static void skip_insignificant(lexer_t *lex) {
     while (skip_one_insignificant(lex, &expect_eol)) {
     }
 
-    if (expect_eol && peek(lex) != '\n' && peek(lex) != LEX_EOF) {
+    if (!expect_eol) {
+        return;
+    }
+
+    lex->saw_newline = true;
+
+    // Inside parentheses, a multiline comment is just whitespace.
+    if (lex->parens_depth == 0 && peek(lex) != '\n' && peek(lex) != LEX_EOF) {
         error_throw_compile(ERR_LEXICAL,
                             lex->src_line,
                             lex->src_column,
@@ -395,9 +402,9 @@ static void scan_ident(lexer_t *lex, token_t *tok) {
     str_init_from_n(&tok->str_val, begin, len);
 }
 
+// Scans one non-layout token. Insignificant characters must already be skipped and the next
+// character must be neither '\n' nor EOF (both are handled by the layout layer).
 static token_t scan_token(lexer_t *lex) {
-    skip_insignificant(lex);
-
     token_t tok = {
         .line   = lex->src_line,
         .column = lex->src_column,
@@ -405,12 +412,6 @@ static token_t scan_token(lexer_t *lex) {
     int c = advance(lex);
 
     switch (c) {
-    case LEX_EOF:
-        tok.type = TOK_EOF;
-        break;
-    case '\n':
-        tok.type = TOK_NEWLINE;
-        break;
     case '+':
         tok.type = TOK_OP_PLUS;
         break;
@@ -489,6 +490,158 @@ static token_t scan_token(lexer_t *lex) {
     return tok;
 }
 
+// ===== Layout =====
+
+// Layout tokens are: INDENT, DEDENT, NEWLINE, EOF.
+
+static void indent_push(lexer_t *lex, size_t level) {
+    if (lex->indent_len == lex->indent_cap) {
+        lex->indent_cap *= 2;
+        lex->indent_stack = safe_realloc(lex->indent_stack, lex->indent_cap * sizeof(size_t));
+    }
+    lex->indent_stack[lex->indent_len++] = level;
+}
+
+static inline size_t indent_top(const lexer_t *lex) {
+    return lex->indent_stack[lex->indent_len - 1];
+}
+
+// Creates a layout token at the current position.
+static token_t layout_token(const lexer_t *lex, token_type_t type) {
+    return (token_t){
+        .type          = type,
+        .line          = lex->src_line,
+        .column        = lex->src_column,
+        .after_newline = lex->saw_newline,
+    };
+}
+
+// Processes the start of a physical line: measures its indentation and updates the indentation
+// stack. Returns true if `out` was filled with a TOK_INDENT to emit; dedents are only scheduled
+// in `pending_dedents`. Blank lines (whitespace and comments only) are left untouched.
+static bool handle_line_start(lexer_t *lex, token_t *out) {
+    size_t width = 0;
+    while (peek(lex) == ' ') {
+        advance(lex);
+        width++;
+    }
+
+    size_t tab_line = lex->src_line, tab_col = lex->src_column;
+    bool has_tab = peek(lex) == '\t';
+
+    skip_insignificant(lex);
+
+    int c = peek(lex);
+
+    if (c == '\n' || c == LEX_EOF) {
+        // A blank line: it does not change the indentation, `at_line_start` stays set.
+        return false;
+    }
+
+    if (has_tab) {
+        error_throw_compile(ERR_LEXICAL, tab_line, tab_col, "tab used for indentation");
+    }
+
+    lex->at_line_start = false;
+
+    if (lex->parens_depth > 0) {
+        // A continuation line inside parentheses: no INDENT/DEDENT, but it must be indented more
+        // than the start of its logical line.
+        if (width <= indent_top(lex)) {
+            error_throw_compile(ERR_LEXICAL,
+                                lex->src_line,
+                                lex->src_column,
+                                "continuation line must be indented more than its logical line");
+        }
+        return false;
+    }
+
+    if (width > indent_top(lex)) {
+        indent_push(lex, width);
+        *out = layout_token(lex, TOK_INDENT);
+        return true;
+    }
+
+    while (width < indent_top(lex)) {
+        lex->indent_len--;
+        lex->pending_dedents++;
+    }
+
+    if (width != indent_top(lex)) {
+        error_throw_compile(ERR_LEXICAL,
+                            lex->src_line,
+                            lex->src_column,
+                            "dedent does not match any outer indentation level");
+    }
+
+    return false;
+}
+
+static token_t next_token(lexer_t *lex) {
+    while (true) {
+        if (lex->pending_dedents > 0) {
+            lex->pending_dedents--;
+            return layout_token(lex, TOK_DEDENT);
+        }
+
+        if (lex->at_line_start) {
+            token_t indent;
+            if (handle_line_start(lex, &indent)) {
+                return indent;
+            }
+            if (lex->pending_dedents > 0) {
+                continue;
+            }
+        }
+
+        skip_insignificant(lex);
+
+        int c = peek(lex);
+
+        if (c == '\n') {
+            token_t newline = layout_token(lex, TOK_NEWLINE);
+            advance(lex);
+            lex->saw_newline   = true;
+            lex->at_line_start = true;
+
+            // Inside parentheses and on blank lines, LF is just whitespace.
+            if (lex->parens_depth == 0 && lex->line_has_tokens) {
+                lex->line_has_tokens = false;
+                return newline;
+            }
+            continue;
+        }
+
+        if (c == LEX_EOF) {
+            // Close the last logical line, then all open blocks. Subsequently, EOF forever.
+            if (lex->line_has_tokens) {
+                lex->line_has_tokens = false;
+                return layout_token(lex, TOK_NEWLINE);
+            }
+            if (lex->indent_len > 1) {
+                lex->indent_len--;
+                return layout_token(lex, TOK_DEDENT);
+            }
+            return layout_token(lex, TOK_EOF);
+        }
+
+        token_t tok       = scan_token(lex);
+        tok.after_newline = lex->saw_newline;
+
+        lex->saw_newline     = false;
+        lex->line_has_tokens = true;
+
+        if (tok.type == TOK_SEP_LPAREN) {
+            lex->parens_depth++;
+        } else if (tok.type == TOK_SEP_RPAREN && lex->parens_depth > 0) {
+            // Unbalanced parentheses are reported by the parser, lexer has nothing to do with it.
+            lex->parens_depth--;
+        }
+
+        return tok;
+    }
+}
+
 // ===== Lexer =====
 
 void lexer_init(lexer_t *lex, const string_t *src) {
@@ -519,8 +672,13 @@ void lexer_free(lexer_t *lex) {
 }
 
 token_t lexer_next(lexer_t *lex) {
-    // TODO: Add code layout handling.
-    return scan_token(lex);
+    if (lex->has_lookahead) {
+        // Ownership of the lookahead moves to the caller.
+        lex->has_lookahead = false;
+        return lex->lookahead;
+    }
+
+    return next_token(lex);
 }
 
 const token_t *lexer_peek(lexer_t *lex) {
