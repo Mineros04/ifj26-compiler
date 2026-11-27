@@ -49,6 +49,9 @@
   protocol-subtitle: none,
   team: none,
   authors: (),
+  variant: none,
+  extensions: (),
+  repository: none,
   location: "Brno",
   date: none,
   document
@@ -195,12 +198,40 @@
     }
   ] #v(1fr)
 
+  // Project details (variant, extensions, repository); empty values are skipped
+  #let labels = if language == "CZ" {
+    (variant: "Varianta", extensions: "Rozšíření", repository: "Repozitář")
+  } else {
+    (variant: "Variant", extensions: "Extensions", repository: "Repository")
+  }
+  #let info-rows = (
+    if variant not in (none, "") {
+      (strong[#labels.variant:], [#variant])
+    },
+    if extensions.len() > 0 {
+      (strong[#labels.extensions:], extensions.map(raw).join([, ]))
+    },
+    if repository not in (none, "") {
+      (strong[#labels.repository:], link(repository, raw(repository)))
+    },
+  ).filter(row => row != none)
+
+  #if info-rows.len() > 0 {
+    grid(
+      columns: (auto, 1fr),
+      column-gutter: 1em,
+      row-gutter: 0.8em,
+      ..info-rows.flatten()
+    )
+    v(10mm)
+  }
+
   // Protocol authors and date
   #grid(
     columns: (2fr, 1fr),
     // Authors
     align(left)[#for author in authors [
-      #if "credits" in author {
+      #if author.at("credits", default: none) not in (none, "") {
         [#strong[#author.credits %] - ]
       }
       #if "leader" in author {
