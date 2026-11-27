@@ -107,6 +107,8 @@ struct AstNode {
             char *name;
             bool is_main;
             AstNodeList params;
+            size_t param_list_cnt;
+            size_t *param_list_sizes;
             DataType return_type;
             AstNode *body;
         } func_def;
@@ -169,6 +171,8 @@ struct AstNode {
         struct {
             char *func_name;
             AstNodeList args;
+            size_t arg_list_cnt;
+            size_t *arg_list_sizes;
         } func_call;
 
         // AST_BIN_OP
@@ -207,6 +211,8 @@ struct AstNode {
 
 void ast_list_init(AstNodeList *list);
 void ast_list_append(AstNodeList *list, AstNode *node);
+void ast_func_def_add_param_list(AstNode *func_node, size_t size);
+void ast_func_call_add_arg_list(AstNode *call_node, size_t size);
 
 // AST Node Constructors
 

@@ -53,6 +53,24 @@ void ast_list_append(AstNodeList *list, AstNode *node) {
     }
     list->items[list->count++] = node;
 }
+static void append_list_size(size_t **sizes, size_t *count, size_t size) {
+    size_t new_cnt  = *count + 1;
+    *sizes          = safe_realloc(*sizes, new_cnt * sizeof(size_t));
+    (*sizes)[*count] = size;
+    *count          = new_cnt;
+}
+
+void ast_func_def_add_param_list(AstNode *func_node, size_t size) {
+    append_list_size(&func_node->func_def.param_list_sizes,
+                     &func_node->func_def.param_list_cnt,
+                     size);
+}
+
+void ast_func_call_add_arg_list(AstNode *call_node, size_t size) {
+    append_list_size(&call_node->func_call.arg_list_sizes,
+                     &call_node->func_call.arg_list_cnt,
+                     size);
+}
 
 // AST Node Constructors
 
@@ -237,6 +255,7 @@ void ast_free(AstNode *node) {
     case AST_FUNC_DEF:
         free(node->func_def.name);
         ast_list_free(&node->func_def.params);
+        free(node->func_def.param_list_sizes);
         ast_free(node->func_def.body);
         break;
 
@@ -285,6 +304,7 @@ void ast_free(AstNode *node) {
     case AST_FUNC_CALL:
         free(node->func_call.func_name);
         ast_list_free(&node->func_call.args);
+        free(node->func_call.arg_list_sizes);
         break;
 
     case AST_BIN_OP:
