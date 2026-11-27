@@ -38,6 +38,29 @@ static void gen_stmt(CodeGenContext *ctx, const AstNode *node);
 static void gen_expr(CodeGenContext *ctx, const AstNode *node);
 
 /**
+ * @brief Checks if a body only has statements
+ *
+ * @param node Node of the statement
+ */
+static bool is_stmt_only(const AstNode *node) {
+    if (node == nullptr)
+        return true;
+
+    switch (node->type) {
+    case AST_VAR_DECL:
+    case AST_ASSIGN:
+    case AST_WHILE:
+    case AST_FOR:
+    case AST_RETURN:
+        return true;
+    case AST_IF:
+        return node->if_stmt.else_branch == nullptr;
+    default:
+        return false;
+    }
+}
+
+/**
  * @brief Generate all builtin functions
  *
  * @param out Output file
@@ -471,9 +494,11 @@ static void gen_func_def(CodeGenContext *ctx, const AstNode *astNode) {
         emit_body(ctx, "POPS LF@%s$%zu\n", varName, id);
     }
 
-    // Process the body of the function
-    if (astNode->func_def.body)
-        gen_stmt(ctx, astNode->func_def.body);
+    // Evaluate the body as an expression so it always leaves 1 return value on the stack
+    if (astNode->func_def.body != nullptr)
+        gen_expr(ctx, astNode->func_def.body);
+    else
+        emit_body(ctx, "PUSHS nil@nil\n");
 
     // Push null to be auto discarded instead of the return value
     if (!astNode->func_def.is_main && astNode->func_def.return_type == TYPE_UNIT)
@@ -892,6 +917,39 @@ static void gen_expr(CodeGenContext *ctx, const AstNode *node) {
 
     case AST_FUNC_CALL: {
         callFunc(ctx, node);
+        break;
+    }
+
+    case AST_BLOCK: {
+        scope_enter(ctx);
+
+        const size_t count = node->block.statements.count;
+        if (count == 0) {
+            emit_body(ctx, "PUSHS nil@nil\n");
+        } else {
+            // Execute all statements except the last one (discarding any values)
+            for (size_t i = 0; i < count - 1; i++) {
+                gen_stmt(ctx, node->block.statements.items[i]);
+            }
+
+            // Last item produces the block value
+            const AstNode *last = node->block.statements.items[count - 1];
+            if (last->type == AST_RETURN) {
+                gen_stmt(ctx, last);
+            } else if (is_stmt_only(last)) {
+                gen_stmt(ctx, last);
+                emit_body(ctx, "PUSHS nil@nil\n");
+            } else {
+                gen_expr(ctx, last);
+            }
+        }
+
+        scope_leave(ctx);
+        break;
+    }
+
+    case AST_RETURN: {
+        gen_stmt(ctx, node);
         break;
     }
 
