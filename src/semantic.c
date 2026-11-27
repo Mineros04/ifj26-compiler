@@ -726,16 +726,19 @@ void semantic_analyzer(AstNode *program) {
     // Loop through all functions and register them
     for (size_t i = 0; i < program->program.functions.count; i++) {
         const AstNode *node = program->program.functions.items[i];
-        if (node == nullptr && node->type == AST_FUNC_DEF)
+        if (node == nullptr || node->type != AST_FUNC_DEF)
             error_throw_internal("Program node is not a function node.");
 
-        param_desc_t *params = safe_malloc(sizeof(param_desc_t) * node->func_def.params.count);
+        const size_t param_cnt = node->func_def.params.count;
+        param_desc_t *params = param_cnt > 0 ? safe_malloc(sizeof(param_desc_t) * param_cnt) : nullptr;
 
         // Loop through all parameters and register them
         for (size_t j = 0; j < node->func_def.params.count; j++) {
             const param_desc_t param = {node->func_def.params.items[j]->param.data_type, false};
             params[j]                = param;
         }
+
+        const bool is_explicit = node->func_def.return_type != TYPE_UNKNOWN;
 
         // Create a function descriptor
         const func_desc_t func_desc = {node->func_def.params.count,
@@ -745,8 +748,8 @@ void semantic_analyzer(AstNode *program) {
                                        node->func_def.is_main,
                                        false,
                                        node->func_def.return_type,
-                                       node->func_def.return_type != TYPE_UNKNOWN,
-                                       RETURN_UNRESOLVED
+                                       is_explicit,
+                                       is_explicit
                                     };
         symtable_status = symtable_insert_func(ctx.funcs, node->func_def.name, func_desc, node->line);
 
