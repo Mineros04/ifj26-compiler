@@ -52,6 +52,8 @@ typedef struct {
 typedef struct {
     size_t parameter_cnt;                // parameter count
     const param_desc_t *parameters;      // parameter array
+    size_t param_list_cnt;               // count of parameter lists
+    const size_t *param_list_sizes;      // parameter list sizes
     bool is_main;                        // is a main function?
     bool is_builtin;                     // is builtin?
     DataType return_type;                // data type of returned value

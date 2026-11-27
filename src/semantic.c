@@ -703,24 +703,18 @@ static DataType check_expr(SemanticContext* ctx, AstNode* node)
     return result;
 }
 
-void semantic_analyzer(AstNode *program)
-{
+void semantic_analyzer(AstNode *program) {
     // Return if there is no program to analyze
     if (program == nullptr || program->type != AST_PROGRAM)
         return;
 
     // Create a symtable
-    symtable_t* funcs = symtable_create();
+    symtable_t *funcs = symtable_create();
     if (funcs == nullptr)
         error_throw_internal("Failed to allocate symtable.");
 
     // Create a semantic context
-    SemanticContext ctx = {
-        funcs,
-        nullptr,
-        program,
-        nullptr
-    };
+    SemanticContext ctx = {funcs, nullptr, program, nullptr};
 
     // Register all builtints into the symtable
     symtable_status_t symtable_status = symtable_register_builtins(ctx.funcs);
@@ -730,58 +724,63 @@ void semantic_analyzer(AstNode *program)
         error_throw_internal("Symtable ran out of memory.");
 
     // Loop through all functions and register them
-    for (size_t i = 0; i < program->program.functions.count; i++)
-    {
-        const AstNode* node = program->program.functions.items[i];
-        if (node != nullptr && node->type == AST_FUNC_DEF)
+    for (size_t i = 0; i < program->program.functions.count; i++) {
+        const AstNode *node = program->program.functions.items[i];
+        if (node == nullptr && node->type == AST_FUNC_DEF)
             error_throw_internal("Program node is not a function node.");
 
-        param_desc_t* params = safe_malloc(sizeof(param_desc_t) * node->func_def.params.count);
+        param_desc_t *params = safe_malloc(sizeof(param_desc_t) * node->func_def.params.count);
 
         // Loop through all parameters and register them
-        for (size_t j = 0; j < node->func_def.params.count; j++)
-        {
-            const param_desc_t param = {
-                node->func_def.params.items[j]->param.data_type,
-                false
-            };
-            params[j] = param;
+        for (size_t j = 0; j < node->func_def.params.count; j++) {
+            const param_desc_t param = {node->func_def.params.items[j]->param.data_type, false};
+            params[j]                = param;
         }
 
         // Create a function descriptor
-        const func_desc_t func_desc = {
-            node->func_def.params.count,
-            params,
-            node->func_def.is_main,
-            false,
-            node->func_def.return_type,
-            node->func_def.return_type != TYPE_UNKNOWN,
-            RETURN_UNRESOLVED
-        };
+        const func_desc_t func_desc = {node->func_def.params.count,
+                                       params,
+                                       0,
+                                       nullptr,
+                                       node->func_def.is_main,
+                                       false,
+                                       node->func_def.return_type,
+                                       node->func_def.return_type != TYPE_UNKNOWN,
+                                       RETURN_UNRESOLVED
+                                    };
         symtable_status = symtable_insert_func(ctx.funcs, node->func_def.name, func_desc, node->line);
 
         free(params);
 
         if (symtable_status == SYMTABLE_ITEM_EXISTS)
-            error_throw_compile(ERR_SEM_REDEF, node->line, 0, "function '%s' is already defined", node->func_def.name);
+            error_throw_compile(ERR_SEM_REDEF,
+                                node->line,
+                                0,
+                                "function '%s' is already defined",
+                                node->func_def.name);
         if (symtable_status == SYMTABLE_OUT_OF_MEM)
             error_throw_internal("Symtable ran out of memory.");
     }
 
     // Check if we have a main function with the correct return type
-    const symbol_t* main_symbol = symtable_find_func(ctx.funcs, "main");
+    const symbol_t *main_symbol = symtable_find_func(ctx.funcs, "main");
     if (main_symbol == nullptr)
         error_throw_compile(ERR_SEM_UNDEF, 0, 0, "Missing 'main' function.");
     if (main_symbol->data.function.parameter_cnt != 0)
-        error_throw_compile(ERR_SEM_INVALID_ARG, (size_t)main_symbol->line_number, 0, "'main' function must not have any parameters.");
-    if (main_symbol->data.function.return_explicit && main_symbol->data.function.return_type != TYPE_INT)
-        error_throw_compile(ERR_SEM_TYPE_MISMATCH, (size_t)main_symbol->line_number, 0, "'main' function must have return type of int.");
-
+        error_throw_compile(ERR_SEM_INVALID_ARG,
+                            (size_t)main_symbol->line_number,
+                            0,
+                            "'main' function must not have any parameters.");
+    if (main_symbol->data.function.return_explicit &&
+        main_symbol->data.function.return_type != TYPE_INT)
+        error_throw_compile(ERR_SEM_TYPE_MISMATCH,
+                            (size_t)main_symbol->line_number,
+                            0,
+                            "'main' function must have return type of int.");
 
     // Loop through all functions and analyze them
-    for (size_t i = 0; i < program->program.functions.count; i++)
-    {
-        AstNode* node = program->program.functions.items[i];
+    for (size_t i = 0; i < program->program.functions.count; i++) {
+        AstNode *node = program->program.functions.items[i];
         if (node != nullptr && node->type == AST_FUNC_DEF)
             analyze_func(&ctx, node);
     }
@@ -789,7 +788,10 @@ void semantic_analyzer(AstNode *program)
     // Check the return type of the main function once more
     main_symbol = symtable_find_func(ctx.funcs, "main");
     if (main_symbol->data.function.return_type != TYPE_INT)
-        error_throw_compile(ERR_SEM_TYPE_MISMATCH, (size_t)main_symbol->line_number, 0, "'main' function must have return type of int.");
+        error_throw_compile(ERR_SEM_TYPE_MISMATCH,
+                            (size_t)main_symbol->line_number,
+                            0,
+                            "'main' function must have return type of int.");
 
     // Free all allocated memory
     symtable_destroy(funcs);
