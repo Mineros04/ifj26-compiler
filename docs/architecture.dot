@@ -1,0 +1,95 @@
+/**
+ * @file architecture.dot
+ * @authors Adam Jaroš, Tomáš Komenda
+ * @brief Graphviz source of the compiler's block architecture diagram.
+ *        Render with: dot -Tpng docs/architecture.dot -o docs/figures/architecture.png
+ *
+ * AI USE DISCLOSURE (assignment, section 4):
+ * The graph was written by the authors, fixed by the AI tool and
+ * reviewed by the authors.
+ *   Tool:    Claude Opus 5.5 (Anthropic), via Claude Code
+ *   Prompts:
+ *     1. "Fix the formatting of this graph and rearrange the the code to sections."
+ *   Included files: "src/*.h", "src/main.c", "docs/lexer-fsm.dot"
+ *
+ * Legend:
+ *   solid bold edge  - main data flow between compilation phases
+ *   solid edge       - call / query between modules
+ *   dashed edge      - error reporting (terminates with the given exit code)
+ *   dotted edge      - "built on top of" (helper module dependency)
+ */
+
+digraph architecture {
+    rankdir="TB";
+    newrank=true;
+    nodesep=0.6;
+    ranksep=0.5;
+    splines=true;
+
+    // Default Times font clips "_" when rendered.
+    graph [fontname="DejaVu Sans"];
+    node  [fontname="DejaVu Sans", fontsize=11];
+    edge  [fontname="DejaVu Sans", fontsize=9];
+
+    // ===== External inputs / outputs =====
+    node [shape=note, style=filled, fillcolor="#eeeeee", group=pipe];
+    stdin  [label="stdin\nzdrojový kód IFJ26"];
+    stdout [label="stdout\nprogram v IFJcode26"];
+
+    // ===== Compiler phases (main pipeline) =====
+    node [shape=box, style="rounded,filled", fillcolor="#dbe9f7", group=pipe];
+    main    [label="main.c\nřízení překladu"];
+    lexer   [label="lexer.c\nlexikální analýza\n(konečný automat)"];
+    parser  [label="parser.c\nsyntaktická analýza\n(rekurzivní sestup, LL(1))"];
+    sema    [label="semantic.c\nsémantická analýza\n(typová kontrola, inference typů)"];
+    codegen [label="codegen.c\ngenerátor cílového kódu"];
+
+    node [group=""];
+    expr    [label="expr.c\nanalýza výrazů\n(precedenční)"];
+
+    // ===== Shared data structures =====
+    node [shape=box, style="filled", fillcolor="#fdf2d0", group=data];
+    ast      [label="ast.c\nabstraktní syntaktický strom\n(AstNode, AstNodeList)"];
+    symtable [label="symtable.c\ntabulka symbolů\n(zásobník rozsahů)"];
+
+    // ===== Helper modules =====
+    node [shape=box, style="filled", fillcolor="#f0f0f0", group=data];
+    str       [label="shared/str.c\ndynamický řetězec\n(string_t)"];
+    hashtable [label="shared/hashtable.c\nTRP s otevřenou adresací"];
+
+    node [shape=box, style="filled", fillcolor="#f7dede", group=""];
+    error  [label="shared/error.c\nhlášení chyb\n(volají všechny fáze)"];
+    node [shape=note, fillcolor="#eeeeee"];
+    stderr [label="stderr + návratový kód\nlexer 1 · parser/expr 2\nsemantic 3–7, 10 · interní 99"];
+
+    // ===== Main data flow =====
+    edge [penwidth=2];
+    stdin   -> main    [label="  bajty (fread)"];
+    main    -> lexer   [label="  string_t\n  (celý zdrojový kód,\n  zapůjčený)"];
+    lexer   -> parser  [label="  token_t\n  (po jednom, na vyžádání:\n  lexer_next / lexer_peek)"];
+    parser  -> sema    [label="  AstNode*\n  (kořen AST_PROGRAM)"];
+    sema    -> codegen [label="  AstNode*\n  (anotovaný AST: inferred_type,\n  convert_to_double)"];
+    codegen -> stdout  [label="  text IFJcode26\n  (FILE*)"];
+
+    // ===== Calls / queries between modules =====
+    edge [penwidth=1];
+    expr -> parser [dir=both, label="→ AstNode*\n(podstrom výrazu)\n← Parser*\n(aktuální token)"];
+    parser -> ast    [label=" ast_new_*()", color="#555555"];
+    sema   -> symtable [label=" vkládání / hledání\n symbol_t (var_desc_t,\n func_desc_t)", dir=both];
+
+    // ===== Helper dependencies =====
+    edge [style=dotted, arrowhead=empty, color="#777777", fontcolor="#555555"];
+    lexer    -> str [label=" hodnoty tokenů"];
+    symtable -> hashtable;
+
+    // ===== Error reporting =====
+    edge [style=dashed, arrowhead=normal, color="#b03030", fontcolor="#b03030"];
+    error -> stderr [label=" zpráva + exit()"];
+
+    // ===== Layout =====
+    { rank=same; lexer; str; }
+    { rank=same; expr; parser; ast; }
+    { rank=same; sema; symtable; }
+    { rank=same; codegen; hashtable; }
+    { rank=same; stdout; error; }
+}
