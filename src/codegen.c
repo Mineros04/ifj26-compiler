@@ -1000,6 +1000,70 @@ static void gen_expr(CodeGenContext* ctx, const AstNode* node)
             break;
         }
 
+        case AST_MEMBER_ACCESS:
+        {
+            gen_expr(ctx, node->member_access.object);
+
+            const char *member = node->member_access.member_name;
+            if (strcmp(member, "toStr") == 0)
+            {
+                emit_body(ctx, "CALL toStr\n");
+            }
+            else if (strcmp(member, "length") == 0)
+            {
+                emit_body(ctx, "CALL strLength\n");
+            }
+            else if (strcmp(member, "toInt") == 0)
+            {
+                emit_body(ctx, "CALL toInt\n");
+            }
+            else if (strcmp(member, "toDouble") == 0)
+            {
+                emit_body(ctx, "INT2FLOATS\n");
+            }
+            else if (strcmp(member, "chr") == 0)
+            {
+                emit_body(ctx, "CALL chr\n");
+            }
+            else
+            {
+                error_throw_internal("Unsupported member '%s' in codegen.", member);
+            }
+            break;
+        }
+
+    case AST_MEMBER_ACCESS:
+        {
+            gen_expr(ctx, node->member_access.object);
+
+            const char *member = node->member_access.member_name;
+            if (strcmp(member, "toStr") == 0)
+            {
+                emit_body(ctx, "CALL toStr\n");
+            }
+            else if (strcmp(member, "length") == 0)
+            {
+                emit_body(ctx, "CALL strLength\n");
+            }
+            else if (strcmp(member, "toInt") == 0)
+            {
+                emit_body(ctx, "CALL toInt\n");
+            }
+            else if (strcmp(member, "toDouble") == 0)
+            {
+                emit_body(ctx, "INT2FLOATS\n");
+            }
+            else if (strcmp(member, "chr") == 0)
+            {
+                emit_body(ctx, "CALL chr\n");
+            }
+            else
+            {
+                error_throw_internal("Unsupported member '%s' in codegen.", member);
+            }
+            break;
+        }
+
         default:
             break;
     }
