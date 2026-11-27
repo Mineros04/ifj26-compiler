@@ -922,7 +922,7 @@ void semantic_analyzer(AstNode *program) {
         error_throw_compile(ERR_SEM_UNDEF, 0, 0, "Missing '@main' function.");
 
     // Check if we have a main function with the correct return type
-    const symbol_t *main_symbol = symtable_find_func(ctx.funcs, "main");
+    const symbol_t *main_symbol = symtable_find_func(ctx.funcs, main_name);
     if (main_symbol == nullptr)
         error_throw_internal("Main function '%s' missing from symtable.", main_name);
     if (main_symbol->data.function.parameter_cnt != 0 ||
