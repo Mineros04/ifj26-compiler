@@ -9,6 +9,9 @@
  *   Prompt: "Can you write the tests for the expression parser?"
  *   Included files: "expr.c", "expr.h", "parser.h", "parser.c", "ast.h", "error.h", "error.c",
  *                   "utest.h", "test_ast.c", "test_hashtable.c", "test_symtable.c"
+ *   Later reworked with Claude Opus 5.5 (Anthropic), via Claude Code, to drive the real lexer
+ *   and parser instead of a mock Parser (the mock clashed with parser.c when linking the shared
+ *   test runner).
  *   Tested situations:
  *     - leaf operands: Int, Double, String, Bool (true/false), identifier, Unit () and (())
  *     - unary operators (+, -, !), right-associative chaining (--x, !!x, !-x), precedence over *
@@ -20,28 +23,31 @@
  *     - stopping at expression terminators (newline, then, do, comma, semicolon, outer ')')
  *       without consuming them
  *     - FUNEXP: function calls inside expressions, nested calls, expression arguments, unary on
- * call
+ *       call
  *     - syntax errors (ERR_SYNTAX = 2): empty expression, non-associative relational/equality
  *       chaining, unary '!' after operand or ')', adjacent operands, unclosed '(', incomplete
  *       unary/binary expressions
  *
- * Build (standalone, with sanitizers):
- *   clang -std=c23 -g -Wall -Wextra -Wpedantic -fsanitize=address,undefined -Isrc -Itests
- * tests/test_main.c tests/test_expr.c src/expr.c src/ast.c src/shared/str.c src/shared/error.c -o
- * /tmp/test_expr Do not define NDEBUG, so the asserts in expr.c stay active.
+ * Every expression is wrapped in a minimal program (`val e = <expr>` inside `@main`) and parsed
+ * with the real lexer and `parse_program`; the expression is then detached from the AST.
  */
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "expr.h"
+#include "ast.h"
+#include "lexer.h"
+#include "parser.h"
 #include "shared/error.h"
+#include "shared/str.h"
 #include "utest.h"
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #if defined(__unix__) || defined(__APPLE__)
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #define EXPR_TEST_HAS_FORK 1
@@ -50,138 +56,66 @@
 #endif
 
 // ---------------------------------------------------------------------------
-// mock Parser (replaces parser.c / lexer.c for standalone expr unit testing)
+// helpers
 // ---------------------------------------------------------------------------
 
-struct Parser {
-    const token_t *tokens;
-    size_t count;
-    size_t index;
-};
+/// Source text placed before the body of `main`; the body therefore starts on line 3.
+#define PROGRAM_PREFIX "import ifj26.*\n@main def main() =\n    "
 
-const token_t *parser_current(const Parser *p) {
-    return &p->tokens[p->index < p->count ? p->index : p->count - 1];
+/// The source line on which the tested expression lies.
+#define EXPR_LINE 3
+
+/// Parses `PROGRAM_PREFIX body` with the real lexer and parser and returns the AST_PROGRAM.
+static AstNode *parse_body(const char *body) {
+    string_t src;
+    str_init_from(&src, PROGRAM_PREFIX);
+    str_append(&src, body);
+    str_push(&src, '\n');
+
+    lexer_t lex;
+    lexer_init(&lex, &src);
+    AstNode *program = parse_program(&lex);
+    lexer_free(&lex);
+    str_free(&src);
+    return program;
 }
 
-void parser_advance(Parser *p) {
-    if (p->index + 1 < p->count) {
-        p->index++;
-    }
+/// Returns the statements of the body block of `main` in `program`.
+static AstNodeList *main_statements(AstNode *program) {
+    return &program->program.functions.items[0]->func_def.body->block.statements;
 }
 
-token_type_t parser_peek_next(Parser *p) {
-    if (p->index + 1 < p->count) {
-        return p->tokens[p->index + 1].type;
-    }
-    return TOK_EOF;
-}
+/// Parses `val e = <expr>` and returns the (detached) expression. Free it with `ast_free`.
+static AstNode *parse_expr(const char *expr) {
+    string_t body;
+    str_init_from(&body, "val e = ");
+    str_append(&body, expr);
 
-[[noreturn]] void syntax_error(const Parser *p, const char *msg) {
-    (void)p;
-    (void)msg;
-#if EXPR_TEST_HAS_FORK
-    // _exit skips atexit/LSan in forked error-test children (compiler uses fail-fast exit)
-    _exit(ERR_SYNTAX);
-#else
-    exit(ERR_SYNTAX);
-#endif
-}
+    AstNode *program = parse_body(str_cstr(&body));
+    str_free(&body);
 
-// Mirrors parser.c's parse_func_call so FUNEXP expressions can be tested recursively
-AstNode *parse_func_call(Parser *p) {
-    if (parser_current(p)->type != TOK_IDENT) {
-        syntax_error(p, "expected function identifier in call");
-    }
-    int line           = (int)parser_current(p)->line;
-    AstNode *call_node = ast_new_func_call(str_cstr(&parser_current(p)->str_val), line);
-    parser_advance(p);
-
-    if (parser_current(p)->type != TOK_SEP_LPAREN) {
-        syntax_error(p, "expected '(' after function name");
-    }
-    parser_advance(p);
-
-    if (parser_current(p)->type != TOK_SEP_RPAREN) {
-        while (true) {
-            AstNode *arg = parse_expression(p);
-            ast_list_append(&call_node->func_call.args, arg);
-            if (parser_current(p)->type != TOK_SEP_COMMA) {
-                break;
-            }
-            parser_advance(p);
-        }
-    }
-
-    if (parser_current(p)->type != TOK_SEP_RPAREN) {
-        syntax_error(p, "expected ')' after function call arguments");
-    }
-    parser_advance(p);
-    return call_node;
-}
-
-// ---------------------------------------------------------------------------
-// token builders & test helpers
-// ---------------------------------------------------------------------------
-
-// NOTE: Adjust str_init / str_append_cstr / str_free below if your str.h uses different names.
-static string_t make_str_val(const char *s) {
-    string_t out;
-    str_init_from(&out, s);
-    return out;
-}
-
-static token_t tok_simple(token_type_t type, size_t line) {
-    return (token_t){.type = type, .line = line};
-}
-
-static token_t tok_int(int64_t val, size_t line) {
-    return (token_t){.type = TOK_LIT_INT, .line = line, .int_val = val};
-}
-
-static token_t tok_double(double val, size_t line) {
-    return (token_t){.type = TOK_LIT_DOUBLE, .line = line, .double_val = val};
-}
-
-static token_t tok_bool(bool val, size_t line) {
-    return (token_t){.type = TOK_LIT_BOOL, .line = line, .bool_val = val};
-}
-
-static token_t tok_ident(const char *name, size_t line) {
-    return (token_t){.type = TOK_IDENT, .line = line, .str_val = make_str_val(name)};
-}
-
-static token_t tok_string(const char *text, size_t line) {
-    return (token_t){.type = TOK_LIT_STRING, .line = line, .str_val = make_str_val(text)};
-}
-
-static void free_tokens(token_t *tokens, size_t count) {
-    for (size_t i = 0; i < count; i++) {
-        if (tokens[i].type == TOK_IDENT || tokens[i].type == TOK_LIT_STRING) {
-            str_free(&tokens[i].str_val);
-        }
-    }
-}
-
-static AstNode *parse_tokens(const token_t *tokens, size_t count, token_type_t *out_stopped_at) {
-    Parser p      = {.tokens = tokens, .count = count, .index = 0};
-    AstNode *node = parse_expression(&p);
-    if (out_stopped_at) {
-        *out_stopped_at = parser_current(&p)->type;
-    }
-    return node;
+    AstNode *decl            = main_statements(program)->items[0];
+    AstNode *e               = decl->var_decl.init_expr;
+    decl->var_decl.init_expr = nullptr;
+    ast_free(program);
+    return e;
 }
 
 #if EXPR_TEST_HAS_FORK
-// Runs parse_expression in a child process and returns true iff it exits with ERR_SYNTAX (2)
-static bool expect_syntax_error(const token_t *tokens, size_t count) {
+/// Parses `val e = <expr>` in a child process; true iff it exits with ERR_SYNTAX (2).
+static bool expect_syntax_error(const char *expr) {
+    // The child exits via exit(), so unflushed parent output would otherwise be printed twice
+    fflush(nullptr);
     pid_t pid = fork();
     if (pid < 0) {
         return false;
     }
     if (pid == 0) {
-        Parser p   = {.tokens = tokens, .count = count, .index = 0};
-        AstNode *n = parse_expression(&p);
-        ast_free(n);
+        int devnull = open("/dev/null", O_WRONLY);
+        if (devnull >= 0) {
+            dup2(devnull, STDERR_FILENO);
+        }
+        ast_free(parse_expr(expr));
         _exit(0); // unexpected success
     }
     int status = 0;
@@ -197,43 +131,36 @@ static bool expect_syntax_error(const token_t *tokens, size_t count) {
 // ---------------------------------------------------------------------------
 
 UTEST(expr, literal_operands) {
-    token_t t_int[]    = {tok_int(42, 3), tok_simple(TOK_EOF, 3)};
-    token_t t_double[] = {tok_double(3.14, 4), tok_simple(TOK_EOF, 4)};
-    token_t t_str[]    = {tok_string("hello", 5), tok_simple(TOK_EOF, 5)};
-    token_t t_true[]   = {tok_bool(true, 6), tok_simple(TOK_EOF, 6)};
-    token_t t_false[]  = {tok_bool(false, 7), tok_simple(TOK_EOF, 7)};
-    token_t t_ident[]  = {tok_ident("counter", 8), tok_simple(TOK_EOF, 8)};
-
-    AstNode *n_int    = parse_tokens(t_int, 2, nullptr);
-    AstNode *n_double = parse_tokens(t_double, 2, nullptr);
-    AstNode *n_str    = parse_tokens(t_str, 2, nullptr);
-    AstNode *n_true   = parse_tokens(t_true, 2, nullptr);
-    AstNode *n_false  = parse_tokens(t_false, 2, nullptr);
-    AstNode *n_ident  = parse_tokens(t_ident, 2, nullptr);
+    AstNode *n_int    = parse_expr("42");
+    AstNode *n_double = parse_expr("3.14");
+    AstNode *n_str    = parse_expr("\"hello\"");
+    AstNode *n_true   = parse_expr("true");
+    AstNode *n_false  = parse_expr("false");
+    AstNode *n_ident  = parse_expr("counter");
 
     ASSERT_EQ((int)n_int->type, (int)AST_LIT_INT);
     ASSERT_EQ(n_int->lit_int, (int64_t)42);
-    ASSERT_EQ(n_int->line, 3);
+    ASSERT_EQ(n_int->line, EXPR_LINE);
 
     ASSERT_EQ((int)n_double->type, (int)AST_LIT_DOUBLE);
     ASSERT_NEAR(n_double->lit_double, 3.14, 1e-9);
-    ASSERT_EQ(n_double->line, 4);
+    ASSERT_EQ(n_double->line, EXPR_LINE);
 
     ASSERT_EQ((int)n_str->type, (int)AST_LIT_STRING);
     ASSERT_STREQ(n_str->lit_string, "hello");
-    ASSERT_EQ(n_str->line, 5);
+    ASSERT_EQ(n_str->line, EXPR_LINE);
 
     ASSERT_EQ((int)n_true->type, (int)AST_LIT_BOOL);
     ASSERT_TRUE(n_true->lit_bool);
-    ASSERT_EQ(n_true->line, 6);
+    ASSERT_EQ(n_true->line, EXPR_LINE);
 
     ASSERT_EQ((int)n_false->type, (int)AST_LIT_BOOL);
     ASSERT_FALSE(n_false->lit_bool);
-    ASSERT_EQ(n_false->line, 7);
+    ASSERT_EQ(n_false->line, EXPR_LINE);
 
     ASSERT_EQ((int)n_ident->type, (int)AST_IDENT);
     ASSERT_STREQ(n_ident->ident.name, "counter");
-    ASSERT_EQ(n_ident->line, 8);
+    ASSERT_EQ(n_ident->line, EXPR_LINE);
 
     ast_free(n_int);
     ast_free(n_double);
@@ -241,32 +168,17 @@ UTEST(expr, literal_operands) {
     ast_free(n_true);
     ast_free(n_false);
     ast_free(n_ident);
-    free_tokens(t_str, 2);
-    free_tokens(t_ident, 2);
 }
 
 UTEST(expr, unit_literal_and_parenthesized_unit) {
-    token_t t_unit[] = {
-        tok_simple(TOK_SEP_LPAREN, 10),
-        tok_simple(TOK_SEP_RPAREN, 10),
-        tok_simple(TOK_EOF, 10),
-    };
-    AstNode *n = parse_tokens(t_unit, 3, nullptr);
+    AstNode *n = parse_expr("()");
     ASSERT_EQ((int)n->type, (int)AST_LIT_UNIT);
-    ASSERT_EQ(n->line, 10);
+    ASSERT_EQ(n->line, EXPR_LINE);
     ast_free(n);
 
-    // (())
-    token_t t_nested[] = {
-        tok_simple(TOK_SEP_LPAREN, 11),
-        tok_simple(TOK_SEP_LPAREN, 11),
-        tok_simple(TOK_SEP_RPAREN, 11),
-        tok_simple(TOK_SEP_RPAREN, 11),
-        tok_simple(TOK_EOF, 11),
-    };
-    AstNode *n2 = parse_tokens(t_nested, 5, nullptr);
+    AstNode *n2 = parse_expr("(())");
     ASSERT_EQ((int)n2->type, (int)AST_LIT_UNIT);
-    ASSERT_EQ(n2->line, 11);
+    ASSERT_EQ(n2->line, EXPR_LINE);
     ast_free(n2);
 }
 
@@ -276,44 +188,25 @@ UTEST(expr, unit_literal_and_parenthesized_unit) {
 
 UTEST(expr, unary_operators_and_right_associative_chaining) {
     // --x => -(-x)
-    token_t t_neg[] = {
-        tok_simple(TOK_OP_MINUS, 1),
-        tok_simple(TOK_OP_MINUS, 1),
-        tok_ident("x", 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    AstNode *n = parse_tokens(t_neg, 4, nullptr);
+    AstNode *n = parse_expr("--x");
     ASSERT_EQ((int)n->type, (int)AST_UN_OP);
     ASSERT_EQ((int)n->un_op.op, (int)OP_NEG);
     ASSERT_EQ((int)n->un_op.operand->type, (int)AST_UN_OP);
     ASSERT_EQ((int)n->un_op.operand->un_op.op, (int)OP_NEG);
     ASSERT_STREQ(n->un_op.operand->un_op.operand->ident.name, "x");
     ast_free(n);
-    free_tokens(t_neg, 4);
 
     // !!flag => !(!flag)
-    token_t t_not[] = {
-        tok_simple(TOK_OP_NOT, 2),
-        tok_simple(TOK_OP_NOT, 2),
-        tok_ident("flag", 2),
-        tok_simple(TOK_EOF, 2),
-    };
-    AstNode *n_not = parse_tokens(t_not, 4, nullptr);
+    AstNode *n_not = parse_expr("!!flag");
     ASSERT_EQ((int)n_not->type, (int)AST_UN_OP);
     ASSERT_EQ((int)n_not->un_op.op, (int)OP_NOT);
     ASSERT_EQ((int)n_not->un_op.operand->type, (int)AST_UN_OP);
     ASSERT_EQ((int)n_not->un_op.operand->un_op.op, (int)OP_NOT);
     ASSERT_STREQ(n_not->un_op.operand->un_op.operand->ident.name, "flag");
     ast_free(n_not);
-    free_tokens(t_not, 4);
 
     // +5 => OP_POS(5)
-    token_t t_pos[] = {
-        tok_simple(TOK_OP_PLUS, 3),
-        tok_int(5, 3),
-        tok_simple(TOK_EOF, 3),
-    };
-    AstNode *n_pos = parse_tokens(t_pos, 3, nullptr);
+    AstNode *n_pos = parse_expr("+5");
     ASSERT_EQ((int)n_pos->type, (int)AST_UN_OP);
     ASSERT_EQ((int)n_pos->un_op.op, (int)OP_POS);
     ASSERT_EQ(n_pos->un_op.operand->lit_int, (int64_t)5);
@@ -322,14 +215,7 @@ UTEST(expr, unary_operators_and_right_associative_chaining) {
 
 UTEST(expr, unary_binds_tighter_than_mul_and_logical_and) {
     // -a * b => (-a) * b
-    token_t t_mul[] = {
-        tok_simple(TOK_OP_MINUS, 1),
-        tok_ident("a", 1),
-        tok_simple(TOK_OP_STAR, 1),
-        tok_ident("b", 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    AstNode *n = parse_tokens(t_mul, 5, nullptr);
+    AstNode *n = parse_expr("-a * b");
     ASSERT_EQ((int)n->type, (int)AST_BIN_OP);
     ASSERT_EQ((int)n->bin_op.op, (int)OP_MUL);
     ASSERT_EQ((int)n->bin_op.left->type, (int)AST_UN_OP);
@@ -337,36 +223,20 @@ UTEST(expr, unary_binds_tighter_than_mul_and_logical_and) {
     ASSERT_STREQ(n->bin_op.left->un_op.operand->ident.name, "a");
     ASSERT_STREQ(n->bin_op.right->ident.name, "b");
     ast_free(n);
-    free_tokens(t_mul, 5);
 
     // !a && b => (!a) && b
-    token_t t_and[] = {
-        tok_simple(TOK_OP_NOT, 2),
-        tok_ident("a", 2),
-        tok_simple(TOK_OP_AND, 2),
-        tok_ident("b", 2),
-        tok_simple(TOK_EOF, 2),
-    };
-    AstNode *n_and = parse_tokens(t_and, 5, nullptr);
+    AstNode *n_and = parse_expr("!a && b");
     ASSERT_EQ((int)n_and->type, (int)AST_BIN_OP);
     ASSERT_EQ((int)n_and->bin_op.op, (int)OP_AND);
     ASSERT_EQ((int)n_and->bin_op.left->type, (int)AST_UN_OP);
     ASSERT_EQ((int)n_and->bin_op.left->un_op.op, (int)OP_NOT);
     ASSERT_STREQ(n_and->bin_op.right->ident.name, "b");
     ast_free(n_and);
-    free_tokens(t_and, 5);
 }
 
 UTEST(expr, unary_after_binary_operator) {
     // 1 - -2 => 1 - (-2)
-    token_t toks[] = {
-        tok_int(1, 1),
-        tok_simple(TOK_OP_MINUS, 1),
-        tok_simple(TOK_OP_MINUS, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    AstNode *n = parse_tokens(toks, 5, nullptr);
+    AstNode *n = parse_expr("1 - -2");
     ASSERT_EQ((int)n->type, (int)AST_BIN_OP);
     ASSERT_EQ((int)n->bin_op.op, (int)OP_SUB);
     ASSERT_EQ(n->bin_op.left->lit_int, (int64_t)1);
@@ -376,14 +246,7 @@ UTEST(expr, unary_after_binary_operator) {
     ast_free(n);
 
     // a && !b => a && (!b)
-    token_t t_bool[] = {
-        tok_ident("a", 2),
-        tok_simple(TOK_OP_AND, 2),
-        tok_simple(TOK_OP_NOT, 2),
-        tok_ident("b", 2),
-        tok_simple(TOK_EOF, 2),
-    };
-    AstNode *n_bool = parse_tokens(t_bool, 5, nullptr);
+    AstNode *n_bool = parse_expr("a && !b");
     ASSERT_EQ((int)n_bool->type, (int)AST_BIN_OP);
     ASSERT_EQ((int)n_bool->bin_op.op, (int)OP_AND);
     ASSERT_STREQ(n_bool->bin_op.left->ident.name, "a");
@@ -391,7 +254,6 @@ UTEST(expr, unary_after_binary_operator) {
     ASSERT_EQ((int)n_bool->bin_op.right->un_op.op, (int)OP_NOT);
     ASSERT_STREQ(n_bool->bin_op.right->un_op.operand->ident.name, "b");
     ast_free(n_bool);
-    free_tokens(t_bool, 5);
 }
 
 // ---------------------------------------------------------------------------
@@ -400,15 +262,7 @@ UTEST(expr, unary_after_binary_operator) {
 
 UTEST(expr, mul_binds_tighter_than_add) {
     // 1 + 2 * 3 => 1 + (2 * 3)
-    token_t toks[] = {
-        tok_int(1, 1),
-        tok_simple(TOK_OP_PLUS, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_OP_STAR, 1),
-        tok_int(3, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    AstNode *n = parse_tokens(toks, 6, nullptr);
+    AstNode *n = parse_expr("1 + 2 * 3");
     ASSERT_EQ((int)n->type, (int)AST_BIN_OP);
     ASSERT_EQ((int)n->bin_op.op, (int)OP_ADD);
     ASSERT_EQ(n->bin_op.left->lit_int, (int64_t)1);
@@ -421,15 +275,7 @@ UTEST(expr, mul_binds_tighter_than_add) {
 
 UTEST(expr, arithmetic_left_associativity) {
     // 10 - 3 + 2 => (10 - 3) + 2
-    token_t t_add[] = {
-        tok_int(10, 1),
-        tok_simple(TOK_OP_MINUS, 1),
-        tok_int(3, 1),
-        tok_simple(TOK_OP_PLUS, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    AstNode *n = parse_tokens(t_add, 6, nullptr);
+    AstNode *n = parse_expr("10 - 3 + 2");
     ASSERT_EQ((int)n->bin_op.op, (int)OP_ADD);
     ASSERT_EQ((int)n->bin_op.left->bin_op.op, (int)OP_SUB);
     ASSERT_EQ(n->bin_op.left->bin_op.left->lit_int, (int64_t)10);
@@ -438,15 +284,7 @@ UTEST(expr, arithmetic_left_associativity) {
     ast_free(n);
 
     // 20 / 4 * 2 => (20 / 4) * 2
-    token_t t_mul[] = {
-        tok_int(20, 2),
-        tok_simple(TOK_OP_SLASH, 2),
-        tok_int(4, 2),
-        tok_simple(TOK_OP_STAR, 2),
-        tok_int(2, 2),
-        tok_simple(TOK_EOF, 2),
-    };
-    AstNode *n2 = parse_tokens(t_mul, 6, nullptr);
+    AstNode *n2 = parse_expr("20 / 4 * 2");
     ASSERT_EQ((int)n2->bin_op.op, (int)OP_MUL);
     ASSERT_EQ((int)n2->bin_op.left->bin_op.op, (int)OP_DIV);
     ASSERT_EQ(n2->bin_op.left->bin_op.left->lit_int, (int64_t)20);
@@ -457,19 +295,7 @@ UTEST(expr, arithmetic_left_associativity) {
 
 UTEST(expr, relational_and_equality_precedence) {
     // 1 + 2 < 3 * 4 == true => ((1 + 2) < (3 * 4)) == true
-    token_t toks[] = {
-        tok_int(1, 1),
-        tok_simple(TOK_OP_PLUS, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_OP_LT, 1),
-        tok_int(3, 1),
-        tok_simple(TOK_OP_STAR, 1),
-        tok_int(4, 1),
-        tok_simple(TOK_OP_EQ, 1),
-        tok_bool(true, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    AstNode *n = parse_tokens(toks, 10, nullptr);
+    AstNode *n = parse_expr("1 + 2 < 3 * 4 == true");
     ASSERT_EQ((int)n->bin_op.op, (int)OP_EQ);
     ASSERT_TRUE(n->bin_op.right->lit_bool);
     ASSERT_EQ((int)n->bin_op.left->bin_op.op, (int)OP_LT);
@@ -478,33 +304,16 @@ UTEST(expr, relational_and_equality_precedence) {
     ast_free(n);
 
     // true == a <= b => true == (a <= b)
-    token_t t_rhs[] = {
-        tok_bool(true, 2),
-        tok_simple(TOK_OP_EQ, 2),
-        tok_ident("a", 2),
-        tok_simple(TOK_OP_LE, 2),
-        tok_ident("b", 2),
-        tok_simple(TOK_EOF, 2),
-    };
-    AstNode *n2 = parse_tokens(t_rhs, 6, nullptr);
+    AstNode *n2 = parse_expr("true == a <= b");
     ASSERT_EQ((int)n2->bin_op.op, (int)OP_EQ);
     ASSERT_TRUE(n2->bin_op.left->lit_bool);
     ASSERT_EQ((int)n2->bin_op.right->bin_op.op, (int)OP_LE);
     ast_free(n2);
-    free_tokens(t_rhs, 6);
 }
 
 UTEST(expr, logical_and_binds_tighter_than_or) {
     // a || b && c => a || (b && c)
-    token_t toks[] = {
-        tok_ident("a", 1),
-        tok_simple(TOK_OP_OR, 1),
-        tok_ident("b", 1),
-        tok_simple(TOK_OP_AND, 1),
-        tok_ident("c", 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    AstNode *n = parse_tokens(toks, 6, nullptr);
+    AstNode *n = parse_expr("a || b && c");
     ASSERT_EQ((int)n->type, (int)AST_BIN_OP);
     ASSERT_EQ((int)n->bin_op.op, (int)OP_OR);
     ASSERT_STREQ(n->bin_op.left->ident.name, "a");
@@ -513,69 +322,35 @@ UTEST(expr, logical_and_binds_tighter_than_or) {
     ASSERT_STREQ(n->bin_op.right->bin_op.left->ident.name, "b");
     ASSERT_STREQ(n->bin_op.right->bin_op.right->ident.name, "c");
     ast_free(n);
-    free_tokens(toks, 6);
 
     // a == b && c != d || e > f => ((a == b) && (c != d)) || (e > f)
-    token_t t_full[] = {
-        tok_ident("a", 2),
-        tok_simple(TOK_OP_EQ, 2),
-        tok_ident("b", 2),
-        tok_simple(TOK_OP_AND, 2),
-        tok_ident("c", 2),
-        tok_simple(TOK_OP_NEQ, 2),
-        tok_ident("d", 2),
-        tok_simple(TOK_OP_OR, 2),
-        tok_ident("e", 2),
-        tok_simple(TOK_OP_GT, 2),
-        tok_ident("f", 2),
-        tok_simple(TOK_EOF, 2),
-    };
-    AstNode *n2 = parse_tokens(t_full, 12, nullptr);
+    AstNode *n2 = parse_expr("a == b && c != d || e > f");
     ASSERT_EQ((int)n2->bin_op.op, (int)OP_OR);
     ASSERT_EQ((int)n2->bin_op.left->bin_op.op, (int)OP_AND);
     ASSERT_EQ((int)n2->bin_op.left->bin_op.left->bin_op.op, (int)OP_EQ);
     ASSERT_EQ((int)n2->bin_op.left->bin_op.right->bin_op.op, (int)OP_NEQ);
     ASSERT_EQ((int)n2->bin_op.right->bin_op.op, (int)OP_GT);
     ast_free(n2);
-    free_tokens(t_full, 12);
 }
 
 UTEST(expr, logical_and_or_left_associativity) {
     // a && b && c => (a && b) && c
-    token_t t_and[] = {
-        tok_ident("a", 1),
-        tok_simple(TOK_OP_AND, 1),
-        tok_ident("b", 1),
-        tok_simple(TOK_OP_AND, 1),
-        tok_ident("c", 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    AstNode *n1 = parse_tokens(t_and, 6, nullptr);
+    AstNode *n1 = parse_expr("a && b && c");
     ASSERT_EQ((int)n1->bin_op.op, (int)OP_AND);
     ASSERT_EQ((int)n1->bin_op.left->bin_op.op, (int)OP_AND);
     ASSERT_STREQ(n1->bin_op.left->bin_op.left->ident.name, "a");
     ASSERT_STREQ(n1->bin_op.left->bin_op.right->ident.name, "b");
     ASSERT_STREQ(n1->bin_op.right->ident.name, "c");
     ast_free(n1);
-    free_tokens(t_and, 6);
 
     // a || b || c => (a || b) || c
-    token_t t_or[] = {
-        tok_ident("a", 2),
-        tok_simple(TOK_OP_OR, 2),
-        tok_ident("b", 2),
-        tok_simple(TOK_OP_OR, 2),
-        tok_ident("c", 2),
-        tok_simple(TOK_EOF, 2),
-    };
-    AstNode *n2 = parse_tokens(t_or, 6, nullptr);
+    AstNode *n2 = parse_expr("a || b || c");
     ASSERT_EQ((int)n2->bin_op.op, (int)OP_OR);
     ASSERT_EQ((int)n2->bin_op.left->bin_op.op, (int)OP_OR);
     ASSERT_STREQ(n2->bin_op.left->bin_op.left->ident.name, "a");
     ASSERT_STREQ(n2->bin_op.left->bin_op.right->ident.name, "b");
     ASSERT_STREQ(n2->bin_op.right->ident.name, "c");
     ast_free(n2);
-    free_tokens(t_or, 6);
 }
 
 // ---------------------------------------------------------------------------
@@ -584,19 +359,7 @@ UTEST(expr, logical_and_or_left_associativity) {
 
 UTEST(expr, parentheses_override_precedence_and_keep_trailing_minus_binary) {
     // (1 + 2) * 3 - 4 => ((1 + 2) * 3) - 4
-    token_t toks[] = {
-        tok_simple(TOK_SEP_LPAREN, 1),
-        tok_int(1, 1),
-        tok_simple(TOK_OP_PLUS, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_SEP_RPAREN, 1),
-        tok_simple(TOK_OP_STAR, 1),
-        tok_int(3, 1),
-        tok_simple(TOK_OP_MINUS, 1),
-        tok_int(4, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    AstNode *n = parse_tokens(toks, 10, nullptr);
+    AstNode *n = parse_expr("(1 + 2) * 3 - 4");
     ASSERT_EQ((int)n->bin_op.op, (int)OP_SUB);
     ASSERT_EQ(n->bin_op.right->lit_int, (int64_t)4);
     ASSERT_EQ((int)n->bin_op.left->bin_op.op, (int)OP_MUL);
@@ -605,17 +368,7 @@ UTEST(expr, parentheses_override_precedence_and_keep_trailing_minus_binary) {
     ast_free(n);
 
     // (1 + 2) - 3 => binary minus directly after ')'
-    token_t t_sub[] = {
-        tok_simple(TOK_SEP_LPAREN, 2),
-        tok_int(1, 2),
-        tok_simple(TOK_OP_PLUS, 2),
-        tok_int(2, 2),
-        tok_simple(TOK_SEP_RPAREN, 2),
-        tok_simple(TOK_OP_MINUS, 2),
-        tok_int(3, 2),
-        tok_simple(TOK_EOF, 2),
-    };
-    AstNode *n2 = parse_tokens(t_sub, 8, nullptr);
+    AstNode *n2 = parse_expr("(1 + 2) - 3");
     ASSERT_EQ((int)n2->bin_op.op, (int)OP_SUB);
     ASSERT_EQ((int)n2->bin_op.left->bin_op.op, (int)OP_ADD);
     ASSERT_EQ(n2->bin_op.right->lit_int, (int64_t)3);
@@ -626,48 +379,77 @@ UTEST(expr, deep_parentheses_grow_stack_beyond_initial_capacity) {
     enum {
         DEPTH = 40
     };
-    token_t toks[DEPTH * 2 + 2];
+    char src[DEPTH * 2 + 3];
     size_t idx = 0;
     for (int i = 0; i < DEPTH; i++) {
-        toks[idx++] = tok_simple(TOK_SEP_LPAREN, 1);
+        src[idx++] = '(';
     }
-    toks[idx++] = tok_int(99, 1);
+    src[idx++] = '9';
+    src[idx++] = '9';
     for (int i = 0; i < DEPTH; i++) {
-        toks[idx++] = tok_simple(TOK_SEP_RPAREN, 1);
+        src[idx++] = ')';
     }
-    toks[idx++] = tok_simple(TOK_EOF, 1);
+    src[idx] = '\0';
 
-    AstNode *n = parse_tokens(toks, idx, nullptr);
+    AstNode *n = parse_expr(src);
     ASSERT_EQ((int)n->type, (int)AST_LIT_INT);
     ASSERT_EQ(n->lit_int, (int64_t)99);
     ast_free(n);
 }
 
-UTEST(expr, stops_at_terminators_without_consuming_them) {
-    const token_type_t terminators[] = {
-        TOK_NEWLINE,
-        TOK_KW_THEN,
-        TOK_KW_DO,
-        TOK_SEP_COMMA,
-        TOK_SEP_SEMI,
-        TOK_SEP_RPAREN, // unmatched outer ')' (e.g., closing a function call)
-    };
+/// Asserts that `n` is the expression `1 + 2`.
+#define ASSERT_ONE_PLUS_TWO(n)                                                                     \
+    do {                                                                                           \
+        ASSERT_EQ((int)(n)->type, (int)AST_BIN_OP);                                                \
+        ASSERT_EQ((int)(n)->bin_op.op, (int)OP_ADD);                                               \
+        ASSERT_EQ((n)->bin_op.left->lit_int, (int64_t)1);                                          \
+        ASSERT_EQ((n)->bin_op.right->lit_int, (int64_t)2);                                         \
+    } while (0)
 
-    for (size_t i = 0; i < sizeof(terminators) / sizeof(terminators[0]); i++) {
-        token_t toks[] = {
-            tok_int(1, 1),
-            tok_simple(TOK_OP_PLUS, 1),
-            tok_int(2, 1),
-            tok_simple(terminators[i], 1),
-            tok_simple(TOK_EOF, 1),
-        };
-        token_type_t stopped = TOK_EOF;
-        AstNode *n           = parse_tokens(toks, 5, &stopped);
-        ASSERT_EQ((int)n->type, (int)AST_BIN_OP);
-        ASSERT_EQ((int)n->bin_op.op, (int)OP_ADD);
-        ASSERT_EQ((int)stopped, (int)terminators[i]);
-        ast_free(n);
-    }
+// If the expression parser consumed its terminator, the enclosing construct would fail to parse.
+UTEST(expr, stops_at_terminators_without_consuming_them) {
+    // newline
+    AstNode *p_nl = parse_body("val e = 1 + 2\n    val f = 3");
+    ASSERT_EQ(main_statements(p_nl)->count, (size_t)2);
+    ASSERT_ONE_PLUS_TWO(main_statements(p_nl)->items[0]->var_decl.init_expr);
+    ast_free(p_nl);
+
+    // then
+    AstNode *p_then = parse_body("if 1 + 2 then x = 1");
+    AstNode *if_n   = main_statements(p_then)->items[0];
+    ASSERT_EQ((int)if_n->type, (int)AST_IF);
+    ASSERT_ONE_PLUS_TWO(if_n->if_stmt.condition);
+    ast_free(p_then);
+
+    // do
+    AstNode *p_do    = parse_body("while 1 + 2 do x = 1");
+    AstNode *while_n = main_statements(p_do)->items[0];
+    ASSERT_EQ((int)while_n->type, (int)AST_WHILE);
+    ASSERT_ONE_PLUS_TWO(while_n->while_stmt.condition);
+    ast_free(p_do);
+
+    // comma
+    AstNode *p_comma = parse_body("f(1 + 2, 3)");
+    AstNode *call    = main_statements(p_comma)->items[0];
+    ASSERT_EQ((int)call->type, (int)AST_FUNC_CALL);
+    ASSERT_EQ(call->func_call.args.count, (size_t)2);
+    ASSERT_ONE_PLUS_TWO(call->func_call.args.items[0]);
+    ASSERT_EQ(call->func_call.args.items[1]->lit_int, (int64_t)3);
+    ast_free(p_comma);
+
+    // semicolon
+    AstNode *p_semi = parse_body("val e = 1 + 2; val f = 3");
+    ASSERT_EQ(main_statements(p_semi)->count, (size_t)2);
+    ASSERT_ONE_PLUS_TWO(main_statements(p_semi)->items[0]->var_decl.init_expr);
+    ast_free(p_semi);
+
+    // unmatched outer ')' closing a function call
+    AstNode *p_paren = parse_body("f(1 + 2)");
+    AstNode *call2   = main_statements(p_paren)->items[0];
+    ASSERT_EQ((int)call2->type, (int)AST_FUNC_CALL);
+    ASSERT_EQ(call2->func_call.args.count, (size_t)1);
+    ASSERT_ONE_PLUS_TWO(call2->func_call.args.items[0]);
+    ast_free(p_paren);
 }
 
 // ---------------------------------------------------------------------------
@@ -675,31 +457,7 @@ UTEST(expr, stops_at_terminators_without_consuming_them) {
 // ---------------------------------------------------------------------------
 
 UTEST(expr, func_call_nested_and_with_unary_and_binary_ops) {
-    // 2 * f(g(1) + 2, -h()) - 1
-    token_t toks[] = {
-        tok_int(2, 1),
-        tok_simple(TOK_OP_STAR, 1),
-        tok_ident("f", 1),
-        tok_simple(TOK_SEP_LPAREN, 1),
-        tok_ident("g", 1),
-        tok_simple(TOK_SEP_LPAREN, 1),
-        tok_int(1, 1),
-        tok_simple(TOK_SEP_RPAREN, 1),
-        tok_simple(TOK_OP_PLUS, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_SEP_COMMA, 1),
-        tok_simple(TOK_OP_MINUS, 1),
-        tok_ident("h", 1),
-        tok_simple(TOK_SEP_LPAREN, 1),
-        tok_simple(TOK_SEP_RPAREN, 1),
-        tok_simple(TOK_SEP_RPAREN, 1),
-        tok_simple(TOK_OP_MINUS, 1),
-        tok_int(1, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    const size_t ntok = sizeof(toks) / sizeof(toks[0]);
-
-    AstNode *n = parse_tokens(toks, ntok, nullptr);
+    AstNode *n = parse_expr("2 * f(g(1) + 2, -h()) - 1");
     ASSERT_EQ((int)n->type, (int)AST_BIN_OP);
     ASSERT_EQ((int)n->bin_op.op, (int)OP_SUB);
     ASSERT_EQ(n->bin_op.right->lit_int, (int64_t)1);
@@ -731,7 +489,6 @@ UTEST(expr, func_call_nested_and_with_unary_and_binary_ops) {
     ASSERT_EQ(arg1->un_op.operand->func_call.args.count, (size_t)0);
 
     ast_free(n);
-    free_tokens(toks, ntok);
 }
 
 // ---------------------------------------------------------------------------
@@ -742,10 +499,8 @@ UTEST(expr, error_empty_expression) {
 #if !EXPR_TEST_HAS_FORK
     UTEST_SKIP("fork() unavailable on this platform");
 #else
-    token_t t_eof[] = {tok_simple(TOK_EOF, 1)};
-    token_t t_nl[]  = {tok_simple(TOK_NEWLINE, 1), tok_simple(TOK_EOF, 1)};
-    ASSERT_TRUE(expect_syntax_error(t_eof, 1));
-    ASSERT_TRUE(expect_syntax_error(t_nl, 2));
+    ASSERT_TRUE(expect_syntax_error(""));
+    ASSERT_TRUE(expect_syntax_error("; x = 1"));
 #endif
 }
 
@@ -753,27 +508,8 @@ UTEST(expr, error_non_associative_relational_and_equality_chaining) {
 #if !EXPR_TEST_HAS_FORK
     UTEST_SKIP("fork() unavailable on this platform");
 #else
-    // 1 < 2 < 3
-    token_t t_rel[] = {
-        tok_int(1, 1),
-        tok_simple(TOK_OP_LT, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_OP_LT, 1),
-        tok_int(3, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t_rel, 6));
-
-    // 1 == 2 != 3
-    token_t t_eq[] = {
-        tok_int(1, 1),
-        tok_simple(TOK_OP_EQ, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_OP_NEQ, 1),
-        tok_int(3, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t_eq, 6));
+    ASSERT_TRUE(expect_syntax_error("1 < 2 < 3"));
+    ASSERT_TRUE(expect_syntax_error("1 == 2 != 3"));
 #endif
 }
 
@@ -781,25 +517,8 @@ UTEST(expr, error_unary_not_after_operand_or_paren) {
 #if !EXPR_TEST_HAS_FORK
     UTEST_SKIP("fork() unavailable on this platform");
 #else
-    // true ! false
-    token_t t1[] = {
-        tok_bool(true, 1),
-        tok_simple(TOK_OP_NOT, 1),
-        tok_bool(false, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t1, 4));
-
-    // (true) ! false
-    token_t t2[] = {
-        tok_simple(TOK_SEP_LPAREN, 1),
-        tok_bool(true, 1),
-        tok_simple(TOK_SEP_RPAREN, 1),
-        tok_simple(TOK_OP_NOT, 1),
-        tok_bool(false, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t2, 6));
+    ASSERT_TRUE(expect_syntax_error("true ! false"));
+    ASSERT_TRUE(expect_syntax_error("(true) ! false"));
 #endif
 }
 
@@ -807,29 +526,9 @@ UTEST(expr, error_adjacent_operands_and_parens) {
 #if !EXPR_TEST_HAS_FORK
     UTEST_SKIP("fork() unavailable on this platform");
 #else
-    // 1 2
-    token_t t1[] = {tok_int(1, 1), tok_int(2, 1), tok_simple(TOK_EOF, 1)};
-    ASSERT_TRUE(expect_syntax_error(t1, 3));
-
-    // (1) 2
-    token_t t2[] = {
-        tok_simple(TOK_SEP_LPAREN, 1),
-        tok_int(1, 1),
-        tok_simple(TOK_SEP_RPAREN, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t2, 5));
-
-    // 1 (2)
-    token_t t3[] = {
-        tok_int(1, 1),
-        tok_simple(TOK_SEP_LPAREN, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_SEP_RPAREN, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t3, 5));
+    ASSERT_TRUE(expect_syntax_error("1 2"));
+    ASSERT_TRUE(expect_syntax_error("(1) 2"));
+    ASSERT_TRUE(expect_syntax_error("1 (2)"));
 #endif
 }
 
@@ -837,57 +536,11 @@ UTEST(expr, error_unclosed_paren_and_incomplete_operators) {
 #if !EXPR_TEST_HAS_FORK
     UTEST_SKIP("fork() unavailable on this platform");
 #else
-    // (1 + 2
-    token_t t_unclosed[] = {
-        tok_simple(TOK_SEP_LPAREN, 1),
-        tok_int(1, 1),
-        tok_simple(TOK_OP_PLUS, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t_unclosed, 5));
-
-    // 1 +
-    token_t t_trailing[] = {
-        tok_int(1, 1),
-        tok_simple(TOK_OP_PLUS, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t_trailing, 3));
-
-    // * 2
-    token_t t_leading_bin[] = {
-        tok_simple(TOK_OP_STAR, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t_leading_bin, 3));
-
-    // 1 + * 2
-    token_t t_double_bin[] = {
-        tok_int(1, 1),
-        tok_simple(TOK_OP_PLUS, 1),
-        tok_simple(TOK_OP_STAR, 1),
-        tok_int(2, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t_double_bin, 5));
-
-    // !
-    token_t t_lone_not[] = {
-        tok_simple(TOK_OP_NOT, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t_lone_not, 2));
-
-    // (1 + )
-    token_t t_paren_incomplete[] = {
-        tok_simple(TOK_SEP_LPAREN, 1),
-        tok_int(1, 1),
-        tok_simple(TOK_OP_PLUS, 1),
-        tok_simple(TOK_SEP_RPAREN, 1),
-        tok_simple(TOK_EOF, 1),
-    };
-    ASSERT_TRUE(expect_syntax_error(t_paren_incomplete, 5));
+    ASSERT_TRUE(expect_syntax_error("(1 + 2"));
+    ASSERT_TRUE(expect_syntax_error("1 +"));
+    ASSERT_TRUE(expect_syntax_error("* 2"));
+    ASSERT_TRUE(expect_syntax_error("1 + * 2"));
+    ASSERT_TRUE(expect_syntax_error("!"));
+    ASSERT_TRUE(expect_syntax_error("(1 + )"));
 #endif
 }
