@@ -152,8 +152,7 @@ static AstNode *parse_indented_block(Parser *p) {
 
         if (p->current.type == TOK_NEWLINE || p->current.type == TOK_SEP_SEMI) {
             parser_skip_separators(p);
-        } else if (!p->current.after_newline &&
-                   p->current.type != TOK_DEDENT &&
+        } else if (!p->current.after_newline && p->current.type != TOK_DEDENT &&
                    p->current.type != TOK_EOF) {
             syntax_error(p, "expected newline or ';' between statements");
         }
@@ -187,6 +186,7 @@ static AstNode *parse_block_or_stmt(Parser *p) {
 static void parse_param_list(Parser *p, AstNode *func_node) {
     parser_expect(p, TOK_SEP_LPAREN, "expected '(' after function name");
 
+    size_t count = 0;
     if (p->current.type != TOK_SEP_RPAREN) {
         while (true) {
             if (p->current.type != TOK_IDENT) {
@@ -202,6 +202,7 @@ static void parse_param_list(Parser *p, AstNode *func_node) {
             AstNode *param = ast_new_param(param_name, param_type, param_line);
             free(param_name);
             ast_list_append(&func_node->func_def.params, param);
+            count++;
 
             if (!parser_accept(p, TOK_SEP_COMMA)) {
                 break;
@@ -214,6 +215,7 @@ static void parse_param_list(Parser *p, AstNode *func_node) {
     }
 
     parser_expect(p, TOK_SEP_RPAREN, "expected ')' after parameter list");
+    ast_func_def_add_param_list(func_node, count);
 }
 
 /**
@@ -341,10 +343,12 @@ AstNode *parse_func_call(Parser *p) {
     do {
         parser_expect(p, TOK_SEP_LPAREN, "expected '(' after function name");
 
+        size_t count = 0;
         if (p->current.type != TOK_SEP_RPAREN) {
             while (true) {
                 AstNode *arg = parse_expression(p);
                 ast_list_append(&call_node->func_call.args, arg);
+                count++;
                 if (!parser_accept(p, TOK_SEP_COMMA)) {
                     break;
                 }
@@ -355,6 +359,7 @@ AstNode *parse_func_call(Parser *p) {
         }
 
         parser_expect(p, TOK_SEP_RPAREN, "expected ')' after function call arguments");
+        ast_func_call_add_arg_list(call_node, count);
     } while (p->current.type == TOK_SEP_LPAREN);
 
     return call_node;
