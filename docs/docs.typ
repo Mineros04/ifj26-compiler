@@ -7,8 +7,7 @@
   protocol-subtitle: "Protokol k projektu",
   authors: (
     (name: "Adam Jaroš", login: "xjarosa00"),
-  ),
-  date: [Brno, #get-formatted-date("Brno", none, "CZ")]
+  )
 )
 
 Test.
