@@ -725,6 +725,19 @@ AstNode *parse_expression(Parser *p) {
                 }
                 new_entry = expr_create_operand(tok_type, node, tok_line);
 
+            } else if (current_terminal == EXPR_TERMINAL_MEMBER) {
+                int tok_line = (int)current_token->line;
+                parser_advance(p);
+                if (parser_current(p)->type != TOK_IDENT) {
+                    syntax_error(p, "invalid member identifier");
+                }
+
+                char *identifier = str_dup_cstr(&parser_current(p)->str_val);
+
+                new_entry = expr_create_terminal(TOK_SEP_DOT, EXPR_TERMINAL_MEMBER, tok_line);
+                new_entry.shifted_terminal.member_name = identifier;
+
+                consumed_call = false;
             } else {
                 new_entry = expr_create_terminal(current_token->type,
                                                  current_terminal,
