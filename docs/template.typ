@@ -230,15 +230,6 @@
 
   // Rest of the document
   #document
-
-  // Bibliography
-  #pagebreak()
-  #bibliography(
-    "sources.yaml",
-    style: "ieee",
-    full: true,
-    title: if language == "CZ" {"Použitá literatura"} else {"Bibliography"},
-  )
 ]
 
 
