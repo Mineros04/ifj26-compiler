@@ -1,7 +1,7 @@
 /**
- * @file codegen.c
- * @authors Pavel Bobek
- * @brief Implementation of the code generator for IFJ26.
+- @file codegen.c
+- @authors Pavel Bobek
+- @brief Implementation of the code generator for IFJ26.
  */
 
 #include "codegen.h"
@@ -24,7 +24,8 @@ typedef struct {
     size_t var_counter;   // Number of variables in current scope
     int scope_depth;      // Depth of the scope
 
-    const char *current_func; // Record of the current function
+    const char *current_func;          // Record of the current function
+    DataType current_func_return_type; // Return type of the current function
 
     StrBuf decl_buffer; // Buffer of declared variables in a body
     StrBuf body_buffer; // Buffer for the body
@@ -38,9 +39,9 @@ static void gen_stmt(CodeGenContext *ctx, const AstNode *node);
 static void gen_expr(CodeGenContext *ctx, const AstNode *node);
 
 /**
- * @brief Checks if a body only has statements
+- @brief Checks if a body only has statements
  *
- * @param node Node of the statement
+- @param node Node of the statement
  */
 static bool is_stmt_only(const AstNode *node) {
     if (node == nullptr)
@@ -61,9 +62,9 @@ static bool is_stmt_only(const AstNode *node) {
 }
 
 /**
- * @brief Generate all builtin functions
+- @brief Generate all builtin functions
  *
- * @param out Output file
+- @param out Output file
  */
 static void gen_builtins(FILE *out) {
     // print(value: Any): Unit
@@ -133,6 +134,22 @@ static void gen_builtins(FILE *out) {
           "RETURN\n",
           out);
 
+    // readBoolean(): Boolean
+    fputs("\nLABEL readBoolean\n"
+          "CREATEFRAME\n"
+          "PUSHFRAME\n"
+          "DEFVAR LF@res\n"
+          "DEFVAR LF@type\n"
+          "READ LF@res bool\n"
+          "TYPE LF@type LF@res\n"
+          "JUMPIFNEQ $readBoolean$ok LF@type string@nil\n"
+          "MOVE LF@res bool@false\n"
+          "LABEL $readBoolean$ok\n"
+          "PUSHS LF@res\n"
+          "POPFRAME\n"
+          "RETURN\n",
+          out);
+
     // toStr(value: Any): String
     fputs("\nLABEL toStr\n"
           "CREATEFRAME\n"
@@ -177,6 +194,26 @@ static void gen_builtins(FILE *out) {
           "DEFVAR LF@res\n"
           "POPS LF@val\n"
           "FLOAT2INT LF@res LF@val\n"
+          "PUSHS LF@res\n"
+          "POPFRAME\n"
+          "RETURN\n",
+          out);
+
+    // floor(value: Double): Double
+    fputs("\nLABEL floor\n"
+          "CREATEFRAME\n"
+          "PUSHFRAME\n"
+          "DEFVAR LF@val\n"
+          "DEFVAR LF@tmp\n"
+          "DEFVAR LF@res\n"
+          "DEFVAR LF@cond\n"
+          "POPS LF@val\n"
+          "FLOAT2INT LF@tmp LF@val\n"
+          "INT2FLOAT LF@res LF@tmp\n"
+          "LT LF@cond LF@val LF@res\n"
+          "JUMPIFEQ $floor$done LF@cond bool@false\n"
+          "SUB LF@res LF@res float@0x1p+0\n"
+          "LABEL $floor$done\n"
           "PUSHS LF@res\n"
           "POPFRAME\n"
           "RETURN\n",
@@ -279,9 +316,9 @@ static void gen_builtins(FILE *out) {
 }
 
 /**
- * @brief Initializes a string buffer.
+- @brief Initializes a string buffer.
  *
- * @param sb Pointer to the string buffer.
+- @param sb Pointer to the string buffer.
  */
 static void sb_init(StrBuf *sb) {
     sb->cap     = 1024;
@@ -291,9 +328,9 @@ static void sb_init(StrBuf *sb) {
 }
 
 /**
- * @brief Frees a string buffer.
+- @brief Frees a string buffer.
  *
- * @param sb Pointer to the string buffer.
+- @param sb Pointer to the string buffer.
  */
 static void sb_free(StrBuf *sb) {
     free(sb->data);
@@ -303,10 +340,10 @@ static void sb_free(StrBuf *sb) {
 }
 
 /**
- * @brief Appends a character to a string buffer.
+- @brief Appends a character to a string buffer.
  *
- * @param sb Pointer to the string buffer.
- * @param c Character to append.
+- @param sb Pointer to the string buffer.
+- @param c Character to append.
  */
 static void sb_append_char(StrBuf *sb, const char c) {
     if (sb->len + 2 > sb->cap) {
@@ -319,11 +356,11 @@ static void sb_append_char(StrBuf *sb, const char c) {
 }
 
 /**
- * @brief Appends a formatted string to the end of a string buffer. Resizes if needed.
+- @brief Appends a formatted string to the end of a string buffer. Resizes if needed.
  *
- * @param sb Pointer to the string buffer.
- * @param fmt String format.
- * @param args Arguments for the formatted string.
+- @param sb Pointer to the string buffer.
+- @param fmt String format.
+- @param args Arguments for the formatted string.
  */
 static void sb_vappendf(StrBuf *sb, const char *fmt, va_list args) {
     va_list argsCopy;
@@ -347,11 +384,11 @@ static void sb_vappendf(StrBuf *sb, const char *fmt, va_list args) {
 }
 
 /**
- * @brief Emits the declaration of variables.
+- @brief Emits the declaration of variables.
  *
- * @param ctx Context for code generator.
- * @param fmt String format.
- * @param ... Arguments for formatted string.
+- @param ctx Context for code generator.
+- @param fmt String format.
+- @param ... Arguments for formatted string.
  */
 static void emit_decl(CodeGenContext *ctx, const char *fmt, ...) {
     va_list args = {};
@@ -361,11 +398,11 @@ static void emit_decl(CodeGenContext *ctx, const char *fmt, ...) {
 }
 
 /**
- * @brief Emits the body.
+- @brief Emits the body.
  *
- * @param ctx Context for code generator.
- * @param fmt String format.
- * @param ... Arguments for formatted string.
+- @param ctx Context for code generator.
+- @param fmt String format.
+- @param ... Arguments for formatted string.
  */
 static void emit_body(CodeGenContext *ctx, const char *fmt, ...) {
     va_list args = {};
@@ -375,13 +412,13 @@ static void emit_body(CodeGenContext *ctx, const char *fmt, ...) {
 }
 
 /**
- * @brief Emits an IFJcode26 formatted string literal with the string@ prefix.
+- @brief Emits an IFJcode26 formatted string literal with the string@ prefix.
  *
- * Escapes control characters using (ASCII 0-32), whitespace, '#' (35), '\' (92),
- * and non-ASCII bytes (>= 127) using the \xyz decimal escape format.
+- Escapes control characters using (ASCII 0-32), whitespace, '#' (35), '\' (92),
+- and non-ASCII bytes (>= 127) using the \xyz decimal escape format.
  *
- * @param ctx Context for code generator.
- * @param src Null-terminated C string to format (emits empty string if NULL).
+- @param ctx Context for code generator.
+- @param src Null-terminated C string to format (emits empty string if NULL).
  */
 static void emit_string(CodeGenContext *ctx, const char *src) {
     emit_body(ctx, "string@");
@@ -399,19 +436,19 @@ static void emit_string(CodeGenContext *ctx, const char *src) {
 }
 
 /**
- * @brief Enters a new block scope. Increments the current scope in the code generation context.
+- @brief Enters a new block scope. Increments the current scope in the code generation context.
  *
- * @param ctx Pointer to the code generator context.
+- @param ctx Pointer to the code generator context.
  */
 static void scope_enter(CodeGenContext *ctx) {
     ctx->scope_depth++;
 }
 
 /**
- * @brief Leaves the current block scope. Removes all local variables declared at the current depth
- * and decrements the scope depth counter.
+- @brief Leaves the current block scope. Removes all local variables declared at the current depth
+- and decrements the scope depth counter.
  *
- * @param ctx Pointer to the code generator context.
+- @param ctx Pointer to the code generator context.
  */
 static void scope_leave(CodeGenContext *ctx) {
     while (ctx->var_count > 0 && ctx->vars[ctx->var_count - 1].scope_depth == ctx->scope_depth) {
@@ -421,12 +458,12 @@ static void scope_leave(CodeGenContext *ctx) {
 }
 
 /**
- * @brief Registers a new local variable in the current scope and emits its DEFVAR instruction.
+- @brief Registers a new local variable in the current scope and emits its DEFVAR instruction.
  *
- * @param ctx Pointer to the code generator context.
- * @param name Name of the variable.
+- @param ctx Pointer to the code generator context.
+- @param name Name of the variable.
  *
- * @return Unique numeric suffix assigned to the variable.
+- @return Unique numeric suffix assigned to the variable.
  */
 static size_t declare_local_var(CodeGenContext *ctx, const char *name) {
     // Check if the buffer needs resizing
@@ -445,12 +482,12 @@ static size_t declare_local_var(CodeGenContext *ctx, const char *name) {
 }
 
 /**
- * @brief Looks up the innermost visible local variables by its name.
+- @brief Looks up the innermost visible local variables by its name.
  *
- * @param ctx Pointer to the code generator context.
- * @param name Name to search for.
+- @param ctx Pointer to the code generator context.
+- @param name Name to search for.
  *
- * @return Unique numeric suffix of the matching variable, or 0 if not found.
+- @return Unique numeric suffix of the matching variable, or 0 if not found.
  */
 static size_t lookup_local_var(const CodeGenContext *ctx, const char *name) {
     for (size_t i = ctx->var_count; i > 0; i--) {
@@ -462,21 +499,22 @@ static size_t lookup_local_var(const CodeGenContext *ctx, const char *name) {
 }
 
 /**
- * @brief Generates IFJcode26 instructions for a function definition.
+- @brief Generates IFJcode26 instructions for a function definition.
  *
- * Resets function-local context state, emits the function label and local frame
- * setup, binds incoming stack parameters in reverse order, generates the body,
- * and emits frame teardown with either EXIT (for main) or RETURN.
+- Resets function-local context state, emits the function label and local frame
+- setup, binds incoming stack parameters in reverse order, generates the body,
+- and emits frame teardown with either EXIT (for main) or RETURN.
  *
- * @param ctx Pointer to the code generator context.
- * @param astNode Pointer to a function node.
+- @param ctx Pointer to the code generator context.
+- @param astNode Pointer to a function node.
  */
 static void gen_func_def(CodeGenContext *ctx, const AstNode *astNode) {
     // Reset local context
-    ctx->current_func = astNode->func_def.name;
-    ctx->var_counter  = 0;
-    ctx->var_count    = 0;
-    ctx->scope_depth  = 0;
+    ctx->current_func             = astNode->func_def.name;
+    ctx->current_func_return_type = astNode->func_def.return_type;
+    ctx->var_counter              = 0;
+    ctx->var_count                = 0;
+    ctx->scope_depth              = 0;
 
     // Initialize buffers for both body and variable declaration
     sb_init(&ctx->decl_buffer);
@@ -500,9 +538,12 @@ static void gen_func_def(CodeGenContext *ctx, const AstNode *astNode) {
     else
         emit_body(ctx, "PUSHS nil@nil\n");
 
-    // Push null to be auto discarded instead of the return value
-    if (!astNode->func_def.is_main && astNode->func_def.return_type == TYPE_UNIT)
-        emit_body(ctx, "PUSHS nil@nil\n");
+    // For Unit functions, discard the body value and push Unit only for non-main functions
+    if (astNode->func_def.return_type == TYPE_UNIT) {
+        emit_body(ctx, "POPS GF@$concat$1\n");
+        if (!astNode->func_def.is_main)
+            emit_body(ctx, "PUSHS nil@nil\n");
+    }
 
     // Emit ending label for a function
     emit_body(ctx, "LABEL $%s$end\n", ctx->current_func);
@@ -523,10 +564,10 @@ static void gen_func_def(CodeGenContext *ctx, const AstNode *astNode) {
 }
 
 /**
- * @brief Generates IFJcode26 instructions for a function call. Pushes all arguments onto the stack.
+- @brief Generates IFJcode26 instructions for a function call. Pushes all arguments onto the stack.
  *
- * @param ctx Pointer to the code generator context.
- * @param node Pointer to a fuction node.
+- @param ctx Pointer to the code generator context.
+- @param node Pointer to a fuction node.
  */
 static void callFunc(CodeGenContext *ctx, const AstNode *node) {
     // Pushes all parameters to the stack
@@ -539,13 +580,13 @@ static void callFunc(CodeGenContext *ctx, const AstNode *node) {
 }
 
 /**
- * @brief Recursivly generates IFJcode26 instructions for a statement AST node.
+- @brief Recursivly generates IFJcode26 instructions for a statement AST node.
  *
- * Handles blocks, variable declarations, assignments, control flow statements
- * (if, while, for), return statements, and standalone function calls or expressions.
+- Handles blocks, variable declarations, assignments, control flow statements
+- (if, while, for), return statements, and standalone function calls or expressions.
  *
- * @param ctx Pointer to the code generator context.
- * @param node Pointer to the statement AST node (ignored if NULL).
+- @param ctx Pointer to the code generator context.
+- @param node Pointer to the statement AST node (ignored if NULL).
  */
 static void gen_stmt(CodeGenContext *ctx, const AstNode *node) {
     // Skip empty node
@@ -706,9 +747,16 @@ static void gen_stmt(CodeGenContext *ctx, const AstNode *node) {
     }
 
     case AST_RETURN: {
-        // Generate expression if it exists
-        if (node->return_stmt.expr)
+        // Generate expression if it exists, otherwise push Unit
+        if (node->return_stmt.expr != nullptr) {
             gen_expr(ctx, node->return_stmt.expr);
+            if (ctx->current_func_return_type == TYPE_UNIT) {
+                emit_body(ctx, "POPS GF@$concat$1\n");
+                emit_body(ctx, "PUSHS nil@nil\n");
+            }
+        } else {
+            emit_body(ctx, "PUSHS nil@nil\n");
+        }
 
         // Print the jump to the end of the function
         emit_body(ctx, "JUMP $%s$end\n", ctx->current_func);
@@ -726,19 +774,20 @@ static void gen_stmt(CodeGenContext *ctx, const AstNode *node) {
 
     default: {
         gen_expr(ctx, node);
+        emit_body(ctx, "POPS GF@$concat$1\n");
         break;
     }
     }
 }
 
 /**
- * @brief Generates IFJcode26 instructions for an expression AST node.
+- @brief Generates IFJcode26 instructions for an expression AST node.
  *
- * Evaluates the expression such that its result is left on top of the data stack.
- * Applies implicit Int-to-Double conversion (INT2FLOATS) if flagged on the node.
+- Evaluates the expression such that its result is left on top of the data stack.
+- Applies implicit Int-to-Double conversion (INT2FLOATS) if flagged on the node.
  *
- * @param ctx Pointer to the code generator context.
- * @param node Pointer to the expression AST node (ignored if NULL).
+- @param ctx Pointer to the code generator context.
+- @param node Pointer to the expression AST node (ignored if NULL).
  */
 static void gen_expr(CodeGenContext *ctx, const AstNode *node) {
     // Skip empty node
@@ -776,10 +825,12 @@ static void gen_expr(CodeGenContext *ctx, const AstNode *node) {
     }
 
     case AST_IDENT: {
-        // Find the variable
+        // Find the variable, or call parameterless function if not found locally
         const size_t id = lookup_local_var(ctx, node->ident.name);
-
-        emit_body(ctx, "PUSHS LF@%s$%zu\n", node->ident.name, id);
+        if (id == 0)
+            emit_body(ctx, "CALL %s\n", node->ident.name);
+        else
+            emit_body(ctx, "PUSHS LF@%s$%zu\n", node->ident.name, id);
         break;
     }
 
@@ -974,7 +1025,7 @@ static void gen_expr(CodeGenContext *ctx, const AstNode *node) {
         gen_expr(ctx, node->member_access.object);
 
         const char *member = node->member_access.member_name;
-        if (strcmp(member, "toStr") == 0)
+        if (strcmp(member, "toString") == 0)
         {
             emit_body(ctx, "CALL toStr\n");
         }
@@ -986,13 +1037,9 @@ static void gen_expr(CodeGenContext *ctx, const AstNode *node) {
         {
             emit_body(ctx, "CALL toInt\n");
         }
-        else if (strcmp(member, "toDouble") == 0)
+        else if (strcmp(member, "floor") == 0)
         {
-            emit_body(ctx, "INT2FLOATS\n");
-        }
-        else if (strcmp(member, "chr") == 0)
-        {
-            emit_body(ctx, "CALL chr\n");
+            emit_body(ctx, "CALL floor\n");
         }
         else
         {
