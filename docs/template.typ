@@ -217,13 +217,13 @@
   // Protocol outline
   #pagebreak()
 
-  // Add numbering to the page
-  #set page(numbering: "1") 
-
   #outline(
     title: if language == "CZ" {"Obsah"} else {"Outline"},
     indent: auto,
   )
+
+  // Add numbering to the page
+  #set page(numbering: "1") 
 
   // Remaining document
   #pagebreak()
