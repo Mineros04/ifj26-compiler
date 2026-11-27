@@ -814,8 +814,8 @@ void semantic_analyzer(AstNode *program) {
         const func_desc_t func_desc = {
             .parameter_cnt    = param_cnt,
             .parameters       = params,
-            .param_list_cnt   = 0,
-            .param_list_sizes = nullptr,
+            .param_list_cnt   = node->func_def.params.param_list_cnt,
+            .param_list_sizes = node->func_def.params.param_list_sizes,
             .is_main          = node->func_def.is_main,
             .is_builtin       = false,
             .return_type      = node->func_def.return_type,
