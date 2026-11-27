@@ -917,7 +917,7 @@ void semantic_analyzer(AstNode *program) {
                             0,
                             "'main' function must not have any parameters.");
     if (main_symbol->data.function.return_explicit &&
-        main_symbol->data.function.return_type != TYPE_INT)
+        main_symbol->data.function.return_type != TYPE_UNIT)
         error_throw_compile(ERR_SEM_TYPE_MISMATCH,
                             (size_t)main_symbol->line_number,
                             0,
@@ -932,7 +932,7 @@ void semantic_analyzer(AstNode *program) {
 
     // Check the return type of the main function once more
     main_symbol = symtable_find_func(ctx.funcs, "main");
-    if (main_symbol->data.function.return_type != TYPE_INT)
+    if (main_symbol->data.function.return_type != TYPE_UNIT)
         error_throw_compile(ERR_SEM_TYPE_MISMATCH,
                             (size_t)main_symbol->line_number,
                             0,
