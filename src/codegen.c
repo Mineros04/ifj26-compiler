@@ -490,10 +490,7 @@ static void gen_func_def(CodeGenContext *ctx, const AstNode *astNode) {
     fprintf(ctx->out, "POPFRAME\n");
 
     // Print the final return
-    if (astNode->func_def.is_main)
-        fprintf(ctx->out, "EXIT int@0\n");
-    else
-        fprintf(ctx->out, "RETURN\n");
+    fprintf(ctx->out, "RETURN\n");
 
     // Free both buffers
     sb_free(&ctx->decl_buffer);
@@ -970,8 +967,21 @@ void codegen_generate(const AstNode *program, FILE *out) {
     fprintf(ctx.out, "DEFVAR GF@$concat$1\n");
     fprintf(ctx.out, "DEFVAR GF@$concat$2\n");
 
-    // Jump to main function
-    fprintf(ctx.out, "JUMP main\n");
+    // Find the main function
+    const char *main_name = nullptr;
+    for (size_t i = 0; i < program->program.functions.count; i++) {
+        const AstNode *fn = program->program.functions.items[i];
+        if (fn != nullptr && fn->type == AST_FUNC_DEF && fn->func_def.is_main) {
+            main_name = fn->func_def.name;
+            break;
+        }
+    }
+    if (main_name == nullptr)
+        error_throw_internal("Missing '@main' function in codegen.");
+
+    // Call main function
+    fprintf(out, "CALL %s\n", main_name);
+    fprintf(out, "EXIT int@0\n");
 
     // Generate all fucntions
     for (size_t i = 0; i < program->program.functions.count; i++) {
