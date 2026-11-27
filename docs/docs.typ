@@ -1,12 +1,15 @@
 #import "template.typ": *
 
 #show: FIT-Protocol.with(
-  academic-subject: "Signály a systémy",
+  academic-subject: "Formální jazyky a překladače, Algoritmy",
   academic-year: "2026/2027",
-  protocol-title: "SEMESTRÁLNÍ PROJEKT — ISS",
-  protocol-subtitle: "Protokol k projektu",
+  protocol-title: "IFJ26 Compiler",
+  protocol-subtitle: "Dokumentace k projektu",
   authors: (
+    (name: "Pavel Bobek", login: "xbobekp00"),
     (name: "Adam Jaroš", login: "xjarosa00"),
+    (name: "Tomáš Komenda", login: "xkoment00"),
+    (name: "Ondřej Pippal", login: "xpippao00")
   )
 )
 
